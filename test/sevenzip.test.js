@@ -15,6 +15,12 @@ test("progress parser handles backspace redraws and split chunks", () => {
   assert.deepEqual(seen[1], { percent: 12, file: "dir\\file one.txt" });
   assert.ok(seen.some((p) => p.percent === 45 && p.file === "other.bin"), "split number re-joined");
   assert.equal(seen.at(-1).percent, 100);
+  // adding prints "+ name" (not "- name"); compress progress must still parse
+  const adds = [];
+  const feedAdd = sz.createProgressParser((p) => adds.push(p));
+  feedAdd(" 37% 12 + Album\\IMG_1.jpg\b\b\b\b 38% U changed.txt\r\n");
+  assert.deepEqual(adds[0], { percent: 37, file: "Album\\IMG_1.jpg" });
+  assert.deepEqual(adds[1], { percent: 38, file: "changed.txt" });
 });
 
 test("progress parser ignores unrelated output", () => {

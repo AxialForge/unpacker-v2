@@ -1,6 +1,11 @@
 # Unpacker V2 — design for the next passes
 
-Status: proposal for review, 2026-09-12. Nothing here is built yet.
+Status: proposal for review, 2026-09-12.
+**Built 2026-09-12:** Phase 1 (1.1–1.10), 2.5 duplicate detection, 3.1 icon.
+Deviations from the text below: 1.8 keeps state `done` and marks the job
+`warned` (amber) instead of a new state; 1.7's long-path wrapping was not
+needed (Node's fs already uses extended-length paths on Windows) — only the
+UNC free-space fallback via `fsutil` was added.
 Each item states the problem, the design (which module, what data, what the
 user sees), the edge cases that decide the design, how it's tested, and a
 size. Sizes: S = under an hour, M = a few hours, L = a day or more.

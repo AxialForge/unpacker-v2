@@ -71,7 +71,8 @@ function createProgressParser(onProgress) {
     // so a following "- file" continuation still attaches.
     const consider = parts.concat(tail);
     for (const frag of consider) {
-      const m = /^\s*(\d{1,3})%(?:\s+(\d+))?(?:\s*-\s*(.+))?\s*$/.exec(frag);
+      // "- name" while extracting/testing, "+ name" while adding, "U name" while updating.
+      const m = /^\s*(\d{1,3})%(?:\s+(\d+))?(?:\s*[-+UTA]\s+(.+))?\s*$/.exec(frag);
       if (!m) continue;
       const percent = Math.min(100, parseInt(m[1], 10));
       const file = m[3] ? m[3].trim() : undefined;
@@ -158,6 +159,9 @@ function parseList(text) {
     if (!any || kv.Path == null) continue;
     const attrs = kv.Attributes || "";
     const isDir = kv.Folder === "+" || /^D/.test(attrs);
+    // Link entries: 7-Zip prints "Symbolic Link = target" / "Hard Link = target";
+    // reparse points carry an "L" in Attributes. Any of these is a link.
+    const link = kv["Symbolic Link"] || kv["Hard Link"] || (/L/.test(attrs.replace(/^D/, "")) || /\bl[rwxstST-]{9}$/.test(attrs) ? "(reparse point)" : "");
     entries.push({
       path: kv.Path,
       size: Number(kv.Size || 0),
@@ -166,11 +170,13 @@ function parseList(text) {
       encrypted: kv.Encrypted === "+",
       modified: kv.Modified || "",
       attributes: attrs,
+      link,
     });
   }
 
-  const totals = { size: 0, packed: 0, files: 0, dirs: 0, encrypted: false };
+  const totals = { size: 0, packed: 0, files: 0, dirs: 0, encrypted: false, links: 0 };
   for (const e of entries) {
+    if (e.link) totals.links += 1;
     if (e.isDir) totals.dirs += 1;
     else {
       totals.files += 1;
@@ -360,6 +366,20 @@ class SevenZip {
     return parsed;
   }
 
+  /**
+   * Extract ONE entry (by its exact stored path) flat into `outDir`.
+   * Used to pull a manifest out of an archive without unpacking the rest.
+   */
+  async extractEntry(archive, entryPath, outDir, o = {}) {
+    fs.mkdirSync(outDir, { recursive: true });
+    const res = await run(this.exe, ["e", archive, `-o${outDir}`, "-aoa", passwordArg(o.password), "-r-", "--", entryPath], { signal: o.signal });
+    const cls = classify(res.code, res.output);
+    if (cls.kind !== "ok" && cls.kind !== "warning") throw new EngineError(cls, res.output);
+    const out = path.join(outDir, path.basename(entryPath));
+    if (!fs.existsSync(out)) throw new EngineError({ kind: "notfound", message: `Entry not found in archive: ${entryPath}` }, res.output);
+    return out;
+  }
+
   async test(archive, o = {}) {
     const res = await run(this.exe, testArgs(archive, o), { signal: o.signal, onProgress: o.onProgress });
     const cls = classify(res.code, res.output);
@@ -437,9 +457,15 @@ class EngineError extends Error {
   }
 }
 
+/** Mask password switches for anything that logs a command line. */
+function redactArgs(args) {
+  return (args || []).map((a) => (/^-(p|hp)./.test(a) ? `${/^-hp/.test(a) ? "-hp" : "-p"}•` : a));
+}
+
 module.exports = {
   SevenZip,
   EngineError,
+  redactArgs,
   locate,
   candidates,
   run,

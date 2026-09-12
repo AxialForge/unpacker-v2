@@ -32,3 +32,16 @@ All notable changes to this project are documented here. The format follows
   optional SHA-256 per file, a copy inside every archive, and a
   "Verify a manifest" job that writes a .verify.txt report.
 - Solid block cap for 7z (`-ms`) so a damaged block stays local.
+- Long-job protection: close confirmation with tray mode, sleep blocker while
+  the queue is busy, partial outputs removed on cancel/failure (verified
+  chunks kept), Takeout tgz temp-space check, cloud-sync folder warning.
+- Security: passwords masked in queue snapshots and logs; archives with
+  symlink/junction entries refused unless allowed in Settings.
+- Manifest placement "inside the archives only"; Verify a manifest accepts an
+  archive and reads the copy inside it.
+- Warnings shown amber on finished jobs; duplicate inputs skipped; app icon.
+
+### Fixed
+
+- Compress jobs reported no progress: 7-Zip prints `+ name` while adding and
+  the parser only accepted `- name`.

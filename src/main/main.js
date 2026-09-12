@@ -1,7 +1,7 @@
 // Electron main process: window, engine wiring, the job queue, IPC, and the
 // command-line entry points used by the Explorer context menu.
 
-const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, powerSaveBlocker } = require("electron");
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
@@ -27,15 +27,13 @@ const DEV = process.argv.includes("--dev");
 // multi-select "Add to archive" should mean.
 
 const { parseCli } = require("./cli");
+const { closeDecision, wantAwake } = require("./policy");
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on("second-instance", (_e, argv) => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    }
+    if (mainWindow) showWindow();
     handleCli(parseCli(argv));
   });
 }
@@ -84,6 +82,7 @@ function createWindow() {
     title: "Unpacker V2",
     backgroundColor: "#14171c",
     autoHideMenuBar: true,
+    icon: path.join(__dirname, "..", "..", "assets", "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -101,6 +100,7 @@ function createWindow() {
     });
     mainWindow.webContents.on("preload-error", (_e, p, err) => console.error("[preload-error]", p, err));
   }
+  mainWindow.on("close", handleClose);
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -134,7 +134,10 @@ function initQueue() {
     if (!engine) throw Object.assign(new Error(engineInfo.error), { kind: "fatal" });
     return runner.run(job, ctx);
   }, { concurrency: store.get().concurrency });
-  queue.on("change", (job) => mainWindow && mainWindow.webContents.send("jobs:change", job));
+  queue.on("change", (job) => {
+    if (mainWindow) mainWindow.webContents.send("jobs:change", job);
+    onQueueActivity();
+  });
   queue.on("removed", (id) => mainWindow && mainWindow.webContents.send("jobs:removed", id));
 }
 
@@ -160,6 +163,10 @@ async function addPaths({ paths = [], action = "auto", options = {} }) {
     const p = path.resolve(String(raw));
     if (seen.has(p.toLowerCase())) continue;
     seen.add(p.toLowerCase());
+    if (activeInputs().has(p.toLowerCase())) {
+      skipped.push({ path: p, reason: "already in the queue" });
+      continue;
+    }
     let st;
     try {
       st = await fsp.stat(p);
@@ -240,7 +247,7 @@ function registerIpc() {
     return next;
   });
 
-  ipcMain.handle("jobs:list", () => queue.list());
+  ipcMain.handle("jobs:list", () => queue.listSafe());
   ipcMain.handle("jobs:addPaths", (_e, req) => addPaths(req || {}));
   ipcMain.handle("jobs:cancel", (_e, id) => queue.cancel(id));
   ipcMain.handle("jobs:retry", (_e, { id, patch }) => queue.retry(id, patch || {}));
@@ -280,7 +287,14 @@ function registerIpc() {
     return { added: [queue.add({ kind: "pack", label, inputs, options: { ...options, appVersion: app.getVersion() } })] };
   });
   ipcMain.handle("verify:manifest", async () => {
-    const r = await dialog.showOpenDialog(mainWindow, { title: "Choose a manifest", properties: ["openFile", "multiSelections"], filters: [{ name: "Unpacker manifests", extensions: ["txt"] }] });
+    const r = await dialog.showOpenDialog(mainWindow, {
+      title: "Choose a manifest, or an archive that carries one",
+      properties: ["openFile", "multiSelections"],
+      filters: [
+        { name: "Manifests and archives", extensions: ["txt", "7z", "zip", "rar", "tar", "gz", "xz", "bz2", "001"] },
+        { name: "All files", extensions: ["*"] },
+      ],
+    });
     if (r.canceled) return { added: [] };
     return { added: r.filePaths.map((p) => queue.add({ kind: "verify-manifest", label: path.basename(p), inputs: [p], options: {} })) };
   });
@@ -358,8 +372,116 @@ app.whenReady().then(() => {
   if (cli.length) mainWindow.webContents.once("did-finish-load", () => handleCli(cli));
 });
 
+// ── long-job protection: close confirmation, tray, sleep blocker ──
+
+let tray = null;
+let quitting = false;
+let blockerId = null;
+
+/** Inputs of jobs that are still pending, for duplicate detection. */
+function activeInputs() {
+  const set = new Set();
+  if (!queue) return set;
+  for (const j of queue.list()) {
+    if (j.state === "queued" || j.state === "running" || j.state === "needs-password") for (const p of j.inputs) set.add(path.resolve(p).toLowerCase());
+  }
+  return set;
+}
+
+/** Called on every queue change: keep the PC awake while busy, keep the tray current. */
+function onQueueActivity() {
+  const busy = queue.running > 0 || queue.pending > 0;
+  const want = wantAwake({ running: queue.running, pending: queue.pending, preventSleep: store.get().preventSleep });
+  if (want && blockerId == null) blockerId = powerSaveBlocker.start("prevent-app-suspension");
+  if (!want && blockerId != null) {
+    if (powerSaveBlocker.isStarted(blockerId)) powerSaveBlocker.stop(blockerId);
+    blockerId = null;
+  }
+  if (tray) tray.setToolTip(trayTooltip());
+  if (mainWindow) mainWindow.webContents.send("app:activity", { busy, awake: blockerId != null });
+}
+
+function trayTooltip() {
+  const r = queue ? queue.running : 0;
+  const p = queue ? queue.pending : 0;
+  return r || p ? `Unpacker V2 — ${r} running, ${p} queued` : "Unpacker V2 — idle";
+}
+
+function showTray() {
+  if (tray) return;
+  const icon = nativeImage.createFromPath(path.join(__dirname, "..", "..", "assets", "tray.png"));
+  tray = new Tray(icon);
+  tray.setToolTip(trayTooltip());
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "Open Unpacker V2", click: showWindow },
+      { label: "Cancel all jobs", click: () => queue && queue.list().forEach((j) => queue.cancel(j.id)) },
+      { type: "separator" },
+      { label: "Quit", click: quitNow },
+    ])
+  );
+  tray.on("click", showWindow);
+}
+
+function hideTray() {
+  if (tray) tray.destroy();
+  tray = null;
+}
+
+function showWindow() {
+  if (!mainWindow) createWindow();
+  else {
+    mainWindow.show();
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+  hideTray();
+}
+
+function quitNow() {
+  quitting = true;
+  if (queue) for (const j of queue.list()) if (j.state === "running" || j.state === "queued") queue.cancel(j.id);
+  // Give the runners a beat to remove partial outputs before the process exits.
+  setTimeout(() => app.quit(), 400);
+}
+
+async function handleClose(event) {
+  if (quitting) return;
+  const busy = queue && (queue.running > 0 || queue.pending > 0);
+  const decision = closeDecision({ busy, closeToTray: store.get().closeToTray });
+  if (decision === "quit") return; // default: window closes, app quits below
+  event.preventDefault();
+  if (decision === "hide") {
+    showTray();
+    mainWindow.hide();
+    return;
+  }
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: "question",
+    title: "Jobs are still running",
+    message: `${queue.running} job${queue.running === 1 ? " is" : "s are"} running and ${queue.pending} waiting.`,
+    detail: "Keep them running in the background and Unpacker V2 stays in the tray until they finish. Cancelling removes any half-written archives.",
+    buttons: ["Keep running in the background", "Cancel jobs and quit", "Stay"],
+    defaultId: 0,
+    cancelId: 2,
+    noLink: true,
+  });
+  if (response === 0) {
+    showTray();
+    mainWindow.hide();
+  } else if (response === 1) {
+    quitNow();
+  }
+}
+
 app.on("window-all-closed", () => {
-  // Let running jobs finish? No: closing the window is the user's cancel.
+  // Reached only when the window really closed (idle, or user chose to quit).
+  if (tray) return; // hidden to tray: keep running
   if (queue) for (const j of queue.list()) if (j.state === "running") queue.cancel(j.id);
   app.quit();
 });
+
+app.on("before-quit", () => {
+  quitting = true;
+});
+

@@ -8,6 +8,8 @@ directories:
 
 files:
   - src/**/*
+  - assets/icon.png
+  - assets/tray.png
   - package.json
 
 # The 7-Zip engine must live OUTSIDE the asar so it can be spawned as a process.
@@ -26,6 +28,7 @@ publish:
 win:
   target:
     - nsis
+  icon: assets/icon.ico
   artifactName: ${name}-${version}-setup.${ext}
 
 nsis:

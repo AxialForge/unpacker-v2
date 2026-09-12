@@ -21,6 +21,10 @@ const DEFAULTS = {
   allowHighRatio: false, // skip the zip-bomb refusal
   contextMenu: false, // Explorer right-click entries registered?
   autoUpdate: true,
+  allowLinks: false, // extract archives that contain symlink/junction entries
+  closeToTray: false, // close button hides to the tray while jobs run (no dialog)
+  preventSleep: true, // powerSaveBlocker while jobs run
+  manifestPlacement: "beside", // "beside" (+inside) | "inside" (only inside the archives)
 };
 
 class Store {

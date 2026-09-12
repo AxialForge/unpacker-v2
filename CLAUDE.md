@@ -23,8 +23,17 @@ creator (see non-negotiables). It is deliberately separate from JDot Utilities.
   `shell.trashItem` (Recycle Bin), never `fs.rm`. Temp dirs are the only thing
   hard-deleted, and only our own `UnpackerV2/<jobId>` folders.
 - **Refuse hostile archives up front.** `safety.unsafeEntries` (path
-  traversal / rooted paths) and `safety.bombRisk` run on the listing before
-  extraction. The bomb guard has a user toggle; the traversal guard does not.
+  traversal / rooted paths), `safety.linkEntries` (symlinks, junctions) and
+  `safety.bombRisk` run on the listing before extraction. The bomb and link
+  guards have user toggles; the traversal guard does not.
+- **Passwords stay in the main process.** Queue snapshots and `jobs:list`
+  go through `maskSecrets` (`"•"`), and anything that logs a 7-Zip command
+  line uses `redactArgs`. They still appear on the 7-Zip/WinRAR command line
+  while a job runs (no engine offers another way); that is documented, not
+  hidden.
+- **Nothing half-written survives a cancel.** Creating jobs register their
+  planned outputs before spawning 7-Zip and remove whatever didn't verify in
+  `discardUnverified`; verified chunks of a pack are kept on purpose.
 - **Renderer has no Node access.** `contextIsolation` + `sandbox`; only
   `window.unpacker` from `preload.js`.
 - **Pure modules stay pure.** `engine/formats.js`, `safety.js`, `jobs/queue.js`,
@@ -158,6 +167,24 @@ Nothing else needs to change: the renderer reads `targets` from `app:info`.
   never see the real tree. Fix: `baseName` slices from the original name, and
   `SevenZip.list({inner})` pipes `7z x -so | 7z l -slt -si -ttar` to list the
   inner tar (`runPiped`). Don't "simplify" list() back to a single process.
+- **Compress jobs showed no progress at all.** 7-Zip prints `NN% + name`
+  while adding and `NN% - name` while extracting; the progress regex only
+  accepted `-`, so `a` runs never matched and every e2e "cancel mid-compress"
+  quietly relied on a fixed timer. The regex accepts `- + U T A` now; the
+  unit test feeds an add line. If progress bars stop moving for one job kind,
+  suspect this first.
+- **Cleanup on cancel must register outputs BEFORE 7-Zip starts.** A cancel
+  kills 7-Zip mid-write, so the "produced" list never receives the return
+  value. `compress`/`convert`/`pack` push the planned path (and `<out>.001`)
+  before `createArchive`, and `discardUnverified` retries `rm` briefly because
+  the handle closes a beat after the kill.
+- **A "cancel after 600 ms" test proves nothing.** 16 MB compresses in less
+  than that. Cancel on the first progress event of the stage you mean, and
+  give the fixture enough bytes to still be running.
+- **Link entries in tar/7z.** `parseList` reads `Symbolic Link =` /
+  `Hard Link =` and the `L` attribute into `entry.link`; `inspect` refuses
+  unless `settings.allowLinks`. Our own tar files carry links because we add
+  with `-snl`, so this bites on round-trips too. That is intended.
 - **`.gitignore` ignores `*.exe`.** `vendor/7zip/*.exe|*.dll` are explicitly
   un-ignored at the bottom; don't move those lines above the `*.exe` rule.
 

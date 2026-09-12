@@ -226,6 +226,13 @@ function wireUi() {
   $("setVerify").addEventListener("change", () => save({ verify: $("setVerify").checked }));
   $("setHighRatio").addEventListener("change", () => save({ allowHighRatio: $("setHighRatio").checked }));
   $("setAutoUpdate").addEventListener("change", () => save({ autoUpdate: $("setAutoUpdate").checked }));
+  $("setAllowLinks").addEventListener("change", () => save({ allowLinks: $("setAllowLinks").checked }));
+  $("setPreventSleep").addEventListener("change", () => save({ preventSleep: $("setPreventSleep").checked }));
+  $("setCloseToTray").addEventListener("change", () => save({ closeToTray: $("setCloseToTray").checked }));
+  $("pkPlacement").addEventListener("change", syncPackNote);
+  api.onActivity(({ busy, awake }) => {
+    $("awakeBadge").hidden = !(busy && awake);
+  });
   $("setContextMenu").addEventListener("change", async () => {
     const want = $("setContextMenu").checked;
     try {
@@ -252,6 +259,9 @@ async function openSettings() {
   $("setVerify").checked = settings.verify;
   $("setHighRatio").checked = settings.allowHighRatio;
   $("setAutoUpdate").checked = settings.autoUpdate;
+  $("setAllowLinks").checked = !!settings.allowLinks;
+  $("setPreventSleep").checked = settings.preventSleep !== false;
+  $("setCloseToTray").checked = !!settings.closeToTray;
   $("setContextMenu").checked = await api.contextMenu.get();
   $("setModal").hidden = false;
 }
@@ -382,7 +392,10 @@ function syncPackNote() {
   if (hasChunk && $("pkMode").value === "chunks") notes.push("Files are grouped so each archive stays under the limit; folders are kept together when they fit. A single file bigger than the limit becomes its own volume set.");
   if (hasChunk && $("pkMode").value === "volumes") notes.push("One archive cut into .001/.002 pieces. Every piece is needed to open it.");
   if ($("pkPassword").value && $("pkFormat").value === "zip") notes.push("ZIP encrypts contents but not file names. Choose 7z to hide names too.");
-  if ($("pkManifest").checked) notes.push("The manifest text file lists file names in plain text even when the archive is encrypted.");
+  $("pkPlaceRow").style.opacity = $("pkManifest").checked ? "1" : "0.5";
+  $("pkPlacement").disabled = !$("pkManifest").checked;
+  if ($("pkManifest").checked && $("pkPlacement").value === "beside" && $("pkPassword").value) notes.push("The manifest text file beside the archives lists file names in plain text. Choose \"inside the archives only\" to keep names private.");
+  if ($("pkManifest").checked && $("pkPlacement").value === "inside") notes.push("Verify later by choosing any of the archives in \"Verify a manifest\"; the manifest inside it is used.");
   if (pkInfo && $("pkHash").checked && $("pkManifest").checked && pkInfo.total > 50 * 1024 ** 3) notes.push(`Hashing reads all ${fmtBytes(pkInfo.total)} once more before packing.`);
   $("pkNote").textContent = notes.join(" ");
 }
@@ -399,6 +412,7 @@ async function startPack() {
     password: $("pkPassword").value || undefined,
     manifest: $("pkManifest").checked,
     hash: $("pkManifest").checked && $("pkHash").checked,
+    manifestPlacement: $("pkPlacement").value,
     outputMode: document.querySelector("input[name=outMode]:checked").value,
     outputDir: settings.outputDir,
   };
@@ -544,7 +558,7 @@ function upsertJob(job) {
     $("queue").appendChild(el);
     jobEls.set(job.id, el);
   }
-  el.className = `job ${job.state}`;
+  el.className = `job ${job.state}${job.warnings.length ? " warned" : ""}`;
   el.querySelector(".kind").textContent = job.kind;
   el.querySelector(".label").textContent = job.label;
   el.querySelector(".label").title = job.inputs.join("\n");
@@ -594,7 +608,8 @@ function refreshStats() {
   const queued = all.filter((j) => j.state === "queued").length;
   const done = all.filter((j) => j.state === "done").length;
   const failed = all.filter((j) => j.state === "failed").length;
-  $("queueStats").textContent = all.length ? `${running} running · ${queued} queued · ${done} done${failed ? ` · ${failed} failed` : ""}` : "";
+  const warned = all.filter((j) => j.state === "done" && j.warnings.length).length;
+  $("queueStats").textContent = all.length ? `${running} running · ${queued} queued · ${done} done${warned ? ` (${warned} with warnings)` : ""}${failed ? ` · ${failed} failed` : ""}` : "";
 }
 
 // tick the elapsed time of running jobs

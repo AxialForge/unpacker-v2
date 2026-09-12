@@ -43,6 +43,22 @@ all just work, on files of any size.
 - Optional Explorer right-click entries: *Add to archive*, *Extract here*,
   *Extract to folder…*, *Convert archive…*.
 
+## Built for jobs you walk away from
+
+- Closing the window while jobs run asks: keep running in the tray, cancel
+  and quit, or stay. A setting makes "hide to tray" the silent default.
+- The PC is kept awake while the queue is busy (toggle in Settings).
+- Cancel or failure removes half-written archives; chunks that already
+  verified are kept. A manifest is only written once every archive is in.
+- Archives containing symbolic links or junctions are refused unless you
+  allow them, because a link can point outside the folder you extract to.
+- Passwords never reach the window's job list. They are visible on the
+  7-Zip/WinRAR command line while a job runs, like every archiver.
+- Inputs inside OneDrive, Google Drive, Dropbox or iCloud folders get a
+  warning: cloud-only placeholders download as they are read.
+- Jobs that finish with warnings turn amber and list them; duplicates
+  already in the queue are skipped.
+
 ## What it deliberately won't do
 
 - **Create RAR without WinRAR.** Only rar.exe can write RAR and its licence

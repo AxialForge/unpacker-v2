@@ -85,7 +85,7 @@
 
       <section class="right">
         <div class="queue-head">
-          <span>Queue</span>
+          <span>Queue <span id="awakeBadge" class="awake" hidden title="System sleep is blocked until the queue is empty (Settings)">keeping the PC awake</span></span>
           <span id="queueStats" class="muted"></span>
         </div>
         <div id="queue" class="queue">
@@ -185,6 +185,12 @@
         <div class="checks">
           <label class="check"><input type="checkbox" id="pkManifest" /> Write a manifest: a text file listing every file, its size, date and which archive holds it. Archives and manifest share an 8-character ID in their names, and a copy rides inside each archive.</label>
           <label class="check" id="pkHashRow"><input type="checkbox" id="pkHash" /> Include SHA-256 of every file in the manifest <span class="muted">(reads everything once more; lets "Verify a manifest" prove the files are intact years later)</span></label>
+          <label class="check" id="pkPlaceRow"><span>Manifest text file:</span>
+            <select id="pkPlacement" style="width:auto">
+              <option value="beside">beside the archives and inside each one</option>
+              <option value="inside">inside the archives only (no plain-text list next to them)</option>
+            </select>
+          </label>
         </div>
         <p id="pkNote" class="muted"></p>
         <div class="modal-actions">
@@ -280,6 +286,9 @@
         <div class="checks">
           <label class="check"><input type="checkbox" id="setVerify" /> Test every archive after creating or converting it (recommended)</label>
           <label class="check"><input type="checkbox" id="setHighRatio" /> Allow extreme compression ratios (turns off the zip-bomb refusal)</label>
+          <label class="check"><input type="checkbox" id="setAllowLinks" /> Allow archives that contain links (symbolic links, junctions) <span class="muted">— off by default because a link can point outside the folder you extract to</span></label>
+          <label class="check"><input type="checkbox" id="setPreventSleep" /> Keep the PC awake while jobs run</label>
+          <label class="check"><input type="checkbox" id="setCloseToTray" /> The close button hides to the tray while jobs run, without asking</label>
           <label class="check"><input type="checkbox" id="setContextMenu" /> Add "Add to archive / Extract here / Convert" to the Explorer right-click menu <span class="muted">(Windows 11: under "Show more options")</span></label>
           <label class="check"><input type="checkbox" id="setAutoUpdate" /> Update automatically from GitHub Releases</label>
         </div>

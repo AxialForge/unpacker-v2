@@ -69,8 +69,60 @@ class Runner {
       const st = await fsp.statfs(dir);
       return Number(st.bavail) * Number(st.bsize);
     } catch {
-      return null; // unknown -> don't block
+      // UNC shares can refuse statfs; ask Windows directly.
+      try {
+        const { execFile } = require("node:child_process");
+        const out = await new Promise((res, rej) => execFile("fsutil", ["volume", "diskfree", dir], { windowsHide: true }, (e, so) => (e ? rej(e) : res(so))));
+        const m = /avail(?:able)? free bytes\s*:\s*([\d,]+)/i.exec(out) || /Total free bytes\s*:\s*([\d,]+)/i.exec(out);
+        return m ? Number(m[1].replace(/,/g, "")) : null;
+      } catch {
+        return null; // unknown -> don't block
+      }
     }
+  }
+
+  /** Warn once per job when inputs sit in a cloud-sync folder (placeholders download on read). */
+  warnCloud(paths, ctx) {
+    const seen = new Set();
+    for (const p of paths) {
+      const svc = safety.cloudSyncRoot(p);
+      if (svc && !seen.has(svc)) {
+        seen.add(svc);
+        ctx.warn(`Inputs are in a ${svc} folder. Cloud-only files download as they are read, which can be very slow; mark the folder "Always keep on this device" first if it isn't.`);
+      }
+    }
+  }
+
+  /**
+   * Remove archives this job created that never passed a verify. Called from
+   * the creating jobs' finally blocks on cancel/failure. Pre-existing files are
+   * never touched: uniquePath guarantees "produced" means "created by us".
+   */
+  discardUnverified(produced, verified, ctx) {
+    let removed = 0;
+    const done = new Set();
+    for (const p of produced) {
+      if (verified.has(p) || verified.has(`${p}.001`)) continue;
+      if (!fs.existsSync(p)) continue;
+      for (const v of volumeSiblings(p)) {
+        if (done.has(v.toLowerCase())) continue;
+        done.add(v.toLowerCase());
+        // 7-Zip may hold the handle for a moment after being killed: retry briefly.
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          try {
+            fs.rmSync(v, { force: true });
+            if (!fs.existsSync(v)) {
+              removed += 1;
+              break;
+            }
+          } catch {
+            /* retry */
+          }
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+        }
+      }
+    }
+    if (removed && ctx) ctx.warn(`Removed ${removed} partial output file(s)${verified.size ? `; kept ${verified.size} that had already verified` : ""}.`);
   }
 
   async ensureSpace(dir, needed, what) {
@@ -202,6 +254,13 @@ class Runner {
     if (bad.length) {
       throw new EngineError({ kind: "unsafe", message: `Refused: archive contains paths that escape the target folder (e.g. "${bad[0]}").` }, "");
     }
+    const links = safety.linkEntries(listing.entries);
+    if (links.length && !(options.allowLinks || this.settings().allowLinks)) {
+      throw new EngineError(
+        { kind: "unsafe", message: `Refused: archive contains ${links.length} link entr${links.length === 1 ? "y" : "ies"} (e.g. "${links[0].path}" → ${links[0].target}). Links can point outside the target folder. Turn on "Allow archives that contain links" in Settings if you trust this archive.` },
+        ""
+      );
+    }
     const packed = listing.physicalSize || listing.totals.packed || (await fsp.stat(archive)).size;
     if (!(options.allowHighRatio || this.settings().allowHighRatio) && safety.bombRisk({ packed, size: listing.totals.size })) {
       throw new EngineError(
@@ -233,7 +292,11 @@ class Runner {
     for (const p of inputs) if (!fs.existsSync(safety.longPath(p))) throw new EngineError({ kind: "notfound", message: `Missing: ${p}` }, "");
     const target = this.targetFor(job.options.format || this.settings().format);
     const tempDir = this.tempDirFor(job);
+    const produced = [];
+    const verified = new Set();
+    let finished = false;
     try {
+      this.warnCloud(inputs, ctx);
       ctx.stage("Measuring");
       const { total, capped } = await this.sizeOf(inputs, ctx.signal);
       const outDir = this.outputDirFor(job, inputs[0]);
@@ -244,10 +307,17 @@ class Runner {
       if (target.inner && !capped) await this.ensureSpace(tempDir, total + 1024 * 1024, "the temporary tar");
 
       ctx.stage(`Compressing to ${target.id}`);
-      const produced = await this.createArchive({ out, inputs, target, options: job.options, tempDir, ctx, from: 0, to: this.settings().verify ? 85 : 100 });
-      if (this.settings().verify) await this.verify(produced, ctx, 85, 100, job.options.password);
-      return { output: produced };
+      produced.push(out, `${out}.001`); // registered BEFORE creation so a cancel mid-write still cleans up
+      const made = await this.createArchive({ out, inputs, target, options: job.options, tempDir, ctx, from: 0, to: this.settings().verify ? 85 : 100 });
+      produced.push(made);
+      if (this.settings().verify) {
+        await this.verify(made, ctx, 85, 100, job.options.password);
+        verified.add(made);
+      }
+      finished = true;
+      return { output: made };
     } finally {
+      if (!finished) this.discardUnverified(produced, this.settings().verify ? verified : new Set(), ctx);
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   }
@@ -289,6 +359,9 @@ class Runner {
     const tempDir = this.tempDirFor(job);
     const stage = path.join(tempDir, "stage");
     fs.mkdirSync(stage, { recursive: true });
+    const producedList = [];
+    const verifiedSet = new Set();
+    let finished = false;
     try {
       const outDir = this.outputDirFor(job, archive);
       fs.mkdirSync(outDir, { recursive: true });
@@ -314,6 +387,7 @@ class Runner {
       if (!items.length) throw new EngineError({ kind: "corrupt", message: "The source archive is empty." }, "");
 
       ctx.stage(`Repacking as ${target.id}`);
+      producedList.push(out, `${out}.001`);
       const produced = await this.createArchive({
         out,
         inputs: items, // relative to cwd = stage, so the tree is preserved exactly
@@ -326,15 +400,21 @@ class Runner {
         to: 88,
       });
 
+      producedList.push(produced);
       const verify = this.settings().verify || job.options.deleteOriginal;
-      if (verify) await this.verify(produced, ctx, 88, 100, job.options.outPassword);
+      if (verify) {
+        await this.verify(produced, ctx, 88, 100, job.options.outPassword);
+        verifiedSet.add(produced);
+      }
 
       if (job.options.deleteOriginal) {
         ctx.stage("Removing original");
         for (const v of volumeSiblings(archive)) await this.trash(v);
       }
+      finished = true;
       return { output: produced };
     } finally {
+      if (!finished) this.discardUnverified(producedList, verifiedSet, ctx);
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   }
@@ -403,6 +483,11 @@ class Runner {
     // 3. Extract parts strictly in order, each merged into the same folder.
     let acc = 0;
     const tempDir = det0 && det0.inner ? this.tempDirFor(job) : null;
+    if (tempDir && todo.length) {
+      // .tgz parts are unwrapped through temp one at a time: room for the biggest one.
+      await this.ensureSpace(tempDir, Math.max(...todo.map((p) => p.size)) + 64 * 1024 * 1024, "unpacking a .tgz part");
+    }
+    this.warnCloud(parts, ctx);
     try {
       for (const part of todo) {
         const from = base + 5 + ((acc / totalBytes) * 75);
@@ -459,7 +544,11 @@ class Runner {
     const o = job.options;
     const target = this.targetFor(o.format || this.settings().format);
     const tempDir = this.tempDirFor(job);
+    const producedList = [];
+    const verifiedSet = new Set();
+    let finished = false;
     try {
+      this.warnCloud(job.inputs, ctx);
       ctx.stage("Listing files");
       const { root, files } = await analyze.enumerate(job.inputs, { signal: ctx.signal });
       if (!files.length) throw new EngineError({ kind: "notfound", message: "Nothing to pack: no files found." }, "");
@@ -527,7 +616,10 @@ class Runner {
         });
         manifestPath = path.join(tempDir, `${base}.manifest.txt`);
         fs.writeFileSync(manifestPath, text, "utf8");
-        manifestOut = safety.uniquePath(path.join(outDir, `${base}.manifest.txt`), (p) => fs.existsSync(p));
+        // "inside" placement: the manifest rides inside every archive but no
+        // plain-text copy is left beside them (names stay private when encrypted).
+        const placement = o.manifestPlacement || this.settings().manifestPlacement || "beside";
+        manifestOut = placement === "inside" ? null : safety.uniquePath(path.join(outDir, `${base}.manifest.txt`), (p) => fs.existsSync(p));
       }
 
       // ── pack ──
@@ -539,6 +631,7 @@ class Runner {
         ctx.stage(count > 1 ? `Packing ${c.label} (${c.files.length} files, ${safety.fmtBytes(c.bytes)})` : `Compressing to ${target.id}`);
         const inputs = c.files.map((f) => (root ? path.relative(root, f.path) : f.path));
         if (manifestPath) inputs.push(manifestPath); // absolute: stored at the archive root
+        producedList.push(c.out, `${c.out}.001`);
         const produced = await this.createArchive({
           out: c.out,
           inputs,
@@ -551,6 +644,7 @@ class Runner {
           to: from0 + (((acc + c.bytes) / totalBytes) * (packTo - from0)),
         });
         outputs.push(produced);
+        producedList.push(produced);
         acc += c.bytes;
       }
 
@@ -560,12 +654,16 @@ class Runner {
         for (let i = 0; i < plan.length; i += 1) {
           ctx.stage(count > 1 ? `Verifying ${plan[i].label}` : "Verifying");
           await this.sevenZip.test(outputs[i], { signal: ctx.signal, password: o.password, onProgress: scale(ctx, packTo + ((vacc / totalBytes) * 12), packTo + (((vacc + plan[i].bytes) / totalBytes) * 12)) });
+          verifiedSet.add(outputs[i]);
           vacc += plan[i].bytes;
         }
       }
-      if (manifestPath) fs.copyFileSync(manifestPath, manifestOut);
+      // The manifest lands beside the archives only once every one of them is in.
+      if (manifestPath && manifestOut) fs.copyFileSync(manifestPath, manifestOut);
+      finished = true;
       return { output: manifestOut || outputs[0] };
     } finally {
+      if (!finished) this.discardUnverified(producedList, verifiedSet, ctx);
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   }
@@ -577,9 +675,20 @@ class Runner {
    * to the manifest and fails with a summary if anything is off.
    */
   async verifyManifest(job, ctx) {
-    const mpath = path.resolve(job.inputs[0]);
+    let mpath = path.resolve(job.inputs[0]);
     const dir = path.dirname(mpath);
+    let pulledDir = null;
+    if (!/\.manifest\.txt$/i.test(mpath)) {
+      // An archive was given: pull the manifest copy that rides at its root.
+      ctx.stage("Reading the manifest inside the archive");
+      const listing = await this.sevenZip.list(mpath, { password: job.options.password, signal: ctx.signal });
+      const entry = listing.entries.find((e) => /\.manifest\.txt$/i.test(e.path) && !/[\\/]/.test(e.path));
+      if (!entry) throw new EngineError({ kind: "unsupported", message: "No manifest found inside that archive. Choose the .manifest.txt file, or an archive made with a manifest." }, "");
+      pulledDir = this.tempDirFor(job);
+      mpath = await this.sevenZip.extractEntry(mpath, entry.path, pulledDir, { password: job.options.password, signal: ctx.signal });
+    }
     const m = manifestLib.parseManifest(fs.readFileSync(mpath, "utf8"));
+    if (pulledDir) fs.rmSync(pulledDir, { recursive: true, force: true });
     if (!m.id || !m.chunks.length) throw new EngineError({ kind: "unsupported", message: "That doesn't look like an Unpacker V2 manifest." }, "");
     const deep = job.options.deep == null ? m.hashed : !!job.options.deep && m.hashed;
     const issues = [];
@@ -642,7 +751,7 @@ class Runner {
       if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
     }
     lines.push("", issues.length ? `${issues.length} problem(s):` : "Everything matches the manifest.", ...issues);
-    const report = `${mpath.replace(/\.manifest\.txt$/i, "")}.verify.txt`;
+    const report = path.join(dir, `${safety.safeFileName(m.name)}_${m.id}.verify.txt`);
     fs.writeFileSync(report, `${lines.join("\n")}\n`, "utf8");
     if (issues.length) {
       throw new EngineError({ kind: "corrupt", message: `${issues.length} problem(s), see ${path.basename(report)}: ${issues.slice(0, 3).join("; ")}${issues.length > 3 ? "; …" : ""}` }, "");

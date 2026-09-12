@@ -201,9 +201,28 @@ class JobQueue extends EventEmitter {
     this.#pump();
   }
 
+  /** Snapshot safe to send anywhere: secrets masked, arrays copied. */
+  snapshot(job) {
+    return { ...job, options: maskSecrets(job.options), warnings: [...job.warnings] };
+  }
+
+  /** list() for the renderer: masked snapshots. */
+  listSafe() {
+    return this.list().map((j) => this.snapshot(j));
+  }
+
   #emit(job) {
-    this.emit("change", { ...job, warnings: [...job.warnings] });
+    this.emit("change", this.snapshot(job));
   }
 }
 
-module.exports = { JobQueue };
+const SECRET_KEYS = ["password", "outPassword"];
+
+/** Replace secret option values with "•" (present) or leave absent. */
+function maskSecrets(options) {
+  const out = { ...(options || {}) };
+  for (const k of SECRET_KEYS) if (out[k]) out[k] = "•";
+  return out;
+}
+
+module.exports = { JobQueue, maskSecrets, SECRET_KEYS };

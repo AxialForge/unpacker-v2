@@ -82,4 +82,30 @@ function fmtBytes(n) {
   return `${v < 10 && i > 0 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
 }
 
-module.exports = { unsafeEntries, bombRisk, longPath, uniquePath, safeFileName, fmtBytes };
+/** Entries that are symbolic links, hard links or reparse points. */
+function linkEntries(entries) {
+  return (entries || []).filter((e) => e && e.link).map((e) => ({ path: e.path, target: e.link }));
+}
+
+/**
+ * Is this path inside a cloud-sync folder whose files may be placeholders
+ * that download on first read? Returns the service name or null. Coarse on
+ * purpose: per-file placeholder detection is expensive on Windows.
+ */
+function cloudSyncRoot(p, env = process.env) {
+  const norm = String(p || "").replace(/\//g, "\\").toLowerCase();
+  const roots = [
+    ["OneDrive", env.OneDrive],
+    ["OneDrive", env.OneDriveConsumer],
+    ["OneDrive for work", env.OneDriveCommercial],
+  ];
+  for (const [name, root] of roots) {
+    if (root && norm.startsWith(String(root).replace(/\//g, "\\").toLowerCase().replace(/\\$/, "") + "\\")) return name;
+  }
+  if (/\\google drive\\|\\my drive\\|\\shared drives\\/.test(norm)) return "Google Drive";
+  if (/\\dropbox\\/.test(norm)) return "Dropbox";
+  if (/\\icloud ?drive\\|\\iclouddrive\\/.test(norm)) return "iCloud Drive";
+  return null;
+}
+
+module.exports = { unsafeEntries, bombRisk, longPath, uniquePath, safeFileName, fmtBytes, linkEntries, cloudSyncRoot };

@@ -63,6 +63,8 @@ contextBridge.exposeInMainWorld("unpacker", {
       return "";
     }
   },
+  // { busy, awake }: whether jobs are running and the sleep blocker is held.
+  onActivity: (cb) => on("app:activity", cb),
   // Explorer verbs that need a decision (extract-to, convert) arrive here.
   onCliRequest: (cb) => on("cli:request", cb),
 });
