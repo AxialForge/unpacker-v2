@@ -52,6 +52,7 @@ function plan(exe) {
   const ops = [];
   ops.push({ key: `${BASE}\\*\\shell\\${ADD_KEY}`, label: "Add to archive (Unpacker V2)", flag: "--compress" });
   ops.push({ key: `${BASE}\\Directory\\shell\\${ADD_KEY}`, label: "Add to archive (Unpacker V2)", flag: "--compress" });
+  ops.push({ key: `${BASE}\\Directory\\shell\\UnpackerV2.ExtractAll`, label: "Extract all archives in here... (Unpacker V2)", flag: "--extract-all" });
   for (const ext of archiveExtensions()) {
     for (const v of ARCHIVE_VERBS) {
       ops.push({ key: `${BASE}\\SystemFileAssociations\\${ext}\\shell\\${v.key}`, label: v.label, flag: v.flag });

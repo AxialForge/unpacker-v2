@@ -30,6 +30,18 @@ contextBridge.exposeInMainWorld("unpacker", {
     start: (paths, options) => ipcRenderer.invoke("pack:start", { paths, options }),
     verifyManifest: () => ipcRenderer.invoke("verify:manifest"),
   },
+  massExtract: {
+    // scan(files|folders) -> { items:[{path,size,type}], totalBytes, byType }
+    scan: (paths) => ipcRenderer.invoke("massExtract:scan", paths),
+    // start({ paths, options }) -> { groupId, added }
+    start: (req) => ipcRenderer.invoke("massExtract:start", req),
+  },
+  groups: {
+    list: () => ipcRenderer.invoke("groups:list"),
+    cancel: (id) => ipcRenderer.invoke("groups:cancel", id),
+    remove: (id) => ipcRenderer.invoke("groups:remove", id),
+    onChange: (cb) => on("groups:change", cb),
+  },
   takeout: {
     // scan(paths|folders) -> exports grouped by timestamp with sizes and gaps
     scan: (paths) => ipcRenderer.invoke("takeout:scan", paths),

@@ -27,11 +27,13 @@ class Runner {
    * @param {() => object} deps.settings   returns the current settings object
    * @param {(p:string) => Promise<void>} deps.trash  move a path to the Recycle Bin
    */
-  constructor({ sevenZip, rar, settings, trash }) {
+  constructor({ sevenZip, rar, settings, trash, spawn }) {
     this.sevenZip = sevenZip;
     this.rar = rar || null;
     this.settings = settings;
     this.trash = trash || (async (p) => fsp.rm(p, { recursive: true, force: true }));
+    // spawn(jobSpec) enqueues a follow-up job (nested archives); optional.
+    this.spawn = spawn || null;
   }
 
   run(job, ctx) {
@@ -343,9 +345,43 @@ class Runner {
         onProgress: scale(ctx, 0, 100),
         onWarning: (m) => ctx.warn(m),
       });
+      await this.afterExtract(job, ctx, archive, dest);
       return { output: dest };
     } finally {
       if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  }
+
+  /**
+   * Mass-extract follow-ups: queue nested archives found in the output
+   * (options.nested = "keep" | "remove", depth-capped) and, for a nested
+   * archive extracted under "remove", bin the archive itself. The 7-Zip
+   * extract that just finished IS the verification of its contents.
+   */
+  async afterExtract(job, ctx, archive, dest) {
+    const o = job.options;
+    const depth = job.depth || 0;
+    if (o.nested && o.nested !== "leave" && depth < (o.maxDepth || 3) && this.spawn) {
+      const scan = require("../scan");
+      const found = await scan.scanFolder(dest, { maxDepth: 32, limit: 2000, skip: new Set([archive.toLowerCase()]) });
+      if (found.length) {
+        ctx.warn(`${found.length} nested archive${found.length === 1 ? "" : "s"} found inside; queued for extraction (depth ${depth + 1}).`);
+        for (const p of found) {
+          this.spawn({
+            kind: "extract",
+            label: `${"↳ ".repeat(depth + 1)}${path.basename(p)}`,
+            inputs: [p],
+            options: { ...o, dest: path.dirname(p), extractMode: "smart", removeSelf: o.nested === "remove" },
+            groupId: job.groupId,
+            sequential: job.sequential,
+            depth: depth + 1,
+          });
+        }
+      }
+    }
+    if (o.removeSelf) {
+      ctx.stage("Removing the nested archive");
+      for (const v of volumeSiblings(archive)) await this.trash(v);
     }
   }
 

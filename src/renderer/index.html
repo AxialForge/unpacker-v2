@@ -33,6 +33,7 @@
           <button id="btnAddFiles" class="btn">Add files…</button>
           <button id="btnAddFolder" class="btn">Add folder…</button>
           <button id="btnOpenArchives" class="btn">Open archives…</button>
+          <button id="btnMassExtract" class="btn accent" title="Extract every archive found in a folder">Mass extract a folder…</button>
           <button id="btnMassConvert" class="btn accent">Mass convert a folder…</button>
           <button id="btnTakeout" class="btn accent" title="Merge a Google Takeout export (all its numbered parts) into one folder">Google Takeout…</button>
           <button id="btnVerifyManifest" class="btn" title="Check an archive set against its .manifest.txt">Verify a manifest…</button>
@@ -89,6 +90,7 @@
           <span id="queueStats" class="muted"></span>
         </div>
         <div id="queue" class="queue">
+          <div id="groups" class="groups"></div>
           <div class="empty" id="queueEmpty">Nothing yet. Drop something on the left.</div>
         </div>
         <div id="notices" class="notices"></div>
@@ -196,6 +198,59 @@
         <div class="modal-actions">
           <button id="pkCancel" class="btn ghost">Cancel</button>
           <button id="pkOk" class="btn accent">Pack</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- mass extract -->
+    <div id="meModal" class="modal" hidden>
+      <div class="modal-card wide">
+        <h3>Mass extract</h3>
+        <p id="meSummary" class="muted"></p>
+        <div class="grid2">
+          <label class="span2">
+            <span>Where the contents go</span>
+            <select id="meDest">
+              <option value="own">Each archive into its own folder, next to the archive</option>
+              <option value="merge">All into one folder (merged)</option>
+              <option value="here">Next to each archive, no new folder</option>
+            </select>
+          </label>
+          <label class="span2" id="meMergeRow" hidden>
+            <span>Merge folder</span>
+            <div class="inline">
+              <input id="meMergeDir" type="text" placeholder="folder" />
+              <button id="meMergeBrowse" class="btn small">choose…</button>
+            </div>
+          </label>
+          <label>
+            <span>If a file already exists</span>
+            <select id="meOverwrite">
+              <option value="rename">Keep both (rename the new one)</option>
+              <option value="skip">Skip it</option>
+              <option value="overwrite">Overwrite it</option>
+            </select>
+          </label>
+          <label>
+            <span>Archives found inside the extracted files</span>
+            <select id="meNested">
+              <option value="leave">Leave them as they are</option>
+              <option value="keep">Extract them too, keep the nested archive</option>
+              <option value="remove">Extract them too, then Recycle-Bin the nested archive</option>
+            </select>
+          </label>
+          <label>
+            <span>Password for all (optional)</span>
+            <input id="mePassword" type="password" autocomplete="off" placeholder="asked per archive if needed" />
+          </label>
+        </div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="meTrash" /> When every archive succeeded, move the source archives to the Recycle Bin</label>
+          <label class="check"><input type="checkbox" id="meSequential" checked /> One archive at a time <span class="muted">(they share a disk; parallel only thrashes it)</span></label>
+        </div>
+        <div class="modal-actions">
+          <button id="meCancel" class="btn ghost">Cancel</button>
+          <button id="meOk" class="btn accent">Extract</button>
         </div>
       </div>
     </div>

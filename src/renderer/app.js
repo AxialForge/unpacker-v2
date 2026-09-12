@@ -160,6 +160,21 @@ function wireUi() {
     const [d] = await api.dialog.chooseFolder("Merge the export into which folder?");
     if (d) $("tkDest").value = d;
   });
+  $("btnMassExtract").addEventListener("click", async () => {
+    const dirs = await api.dialog.chooseFolder("Choose a folder to scan for archives");
+    if (dirs.length) openMassExtractModal(dirs);
+  });
+  $("meDest").addEventListener("change", () => {
+    $("meMergeRow").hidden = $("meDest").value !== "merge";
+  });
+  $("meMergeBrowse").addEventListener("click", async () => {
+    const [d] = await api.dialog.chooseFolder("Merge everything into which folder?");
+    if (d) $("meMergeDir").value = d;
+  });
+  $("meCancel").addEventListener("click", () => ($("meModal").hidden = true));
+  $("meOk").addEventListener("click", startMassExtract);
+  api.groups.onChange(upsertGroup);
+  api.groups.list().then((gs) => gs.forEach(upsertGroup));
   $("btnVerifyManifest").addEventListener("click", async () => {
     const r = await api.pack.verifyManifest();
     if (r.added.length) notice(`Verifying ${r.added.length} manifest${r.added.length === 1 ? "" : "s"}. A .verify.txt report lands next to each.`, "ok");
@@ -425,6 +440,84 @@ function dirname(p) {
   return parts.join("\\");
 }
 
+// ── mass extract ────────────────────────────────────────────────
+
+let mePaths = [];
+async function openMassExtractModal(inputs) {
+  const r = await api.massExtract.scan(inputs);
+  if (!r.items.length) return notice("No archives found there.", "warn");
+  mePaths = r.items.map((i) => i.path);
+  const types = Object.entries(r.byType)
+    .sort((a, b) => b[1] - a[1])
+    .map(([t, n]) => `${n} ${t}`)
+    .join(", ");
+  $("meSummary").textContent = `${r.items.length} archive${r.items.length === 1 ? "" : "s"}, ${fmtBytes(r.totalBytes)} packed (${types}).`;
+  $("meMergeDir").value = dirname(mePaths[0]) + "\\Extracted";
+  $("meMergeRow").hidden = $("meDest").value !== "merge";
+  $("meOverwrite").value = settings.overwrite || "rename";
+  $("meModal").hidden = false;
+}
+
+async function startMassExtract() {
+  $("meModal").hidden = true;
+  const r = await api.massExtract.start({
+    paths: mePaths,
+    options: {
+      destMode: $("meDest").value,
+      mergeDir: $("meMergeDir").value.trim(),
+      overwrite: $("meOverwrite").value,
+      nested: $("meNested").value,
+      password: $("mePassword").value || undefined,
+      trashSources: $("meTrash").checked,
+      sequential: $("meSequential").checked,
+    },
+  });
+  if (r.added.length) notice(`Extracting ${r.added.length} archive${r.added.length === 1 ? "" : "s"}${$("meSequential").checked ? ", one at a time" : ""}.`, "ok");
+}
+
+const groupEls = new Map();
+function upsertGroup(g) {
+  if (g.removed) {
+    const old = groupEls.get(g.id);
+    if (old) old.remove();
+    groupEls.delete(g.id);
+    return;
+  }
+  let el = groupEls.get(g.id);
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "group";
+    el.innerHTML = `<div class="title"></div><div class="actions"></div><div class="bar"><i></i></div><div class="status"></div>`;
+    $("groups").appendChild(el);
+    groupEls.set(g.id, el);
+  }
+  const terminal = g.done + g.failed + g.cancelled;
+  el.className = `group${g.finished ? (g.allOk ? " finished" : " trouble") : ""}`;
+  el.querySelector(".title").textContent = `${g.label}${g.total > g.sources ? ` (+${g.total - g.sources} nested)` : ""}`;
+  el.querySelector(".bar > i").style.width = `${g.total ? (terminal / g.total) * 100 : 0}%`;
+  const bits = [`${g.done} of ${g.total} done`];
+  if (g.running) bits.push(`${g.running} running`);
+  if (g.queued) bits.push(`${g.queued} waiting`);
+  if (g.needsPassword) bits.push(`${g.needsPassword} need a password`);
+  if (g.failed) bits.push(`${g.failed} failed`);
+  if (g.cancelled) bits.push(`${g.cancelled} cancelled`);
+  if (g.finished) bits.push(g.allOk ? "all succeeded" : "finished with problems; sources kept");
+  el.querySelector(".status").textContent = bits.join(" · ");
+  const actions = el.querySelector(".actions");
+  actions.innerHTML = "";
+  const btn = (label, fn) => {
+    const b = document.createElement("button");
+    b.className = "btn small";
+    b.textContent = label;
+    b.addEventListener("click", fn);
+    actions.appendChild(b);
+  };
+  if (!g.finished) btn("Cancel remaining", () => api.groups.cancel(g.id));
+  if (g.finished && g.report) btn("Report", () => api.shell.openPath(g.report));
+  if (g.finished && g.mergeDir) btn("Open folder", () => api.shell.openPath(g.mergeDir));
+  if (g.finished) btn("✕", () => api.groups.remove(g.id));
+}
+
 // ── google takeout ──────────────────────────────────────────────
 
 let tkExports = [];
@@ -500,6 +593,8 @@ function fmtBytes(n) {
 async function handleCliRequest({ type, paths }) {
   if (type === "takeout") {
     openTakeoutModal(paths);
+  } else if (type === "extract-all") {
+    openMassExtractModal(paths);
   } else if (type === "extract-to") {
     const [dest] = await api.dialog.chooseFolder("Extract to folder");
     if (dest) submitPaths(paths, "extract", { ...currentOptions(), dest });

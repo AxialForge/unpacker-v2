@@ -29,7 +29,11 @@ class JobQueue extends EventEmitter {
     this.#pump();
   }
 
-  add({ kind, label, inputs, options = {} }) {
+  /**
+   * groupId ties jobs into a batch (mass extract); sequential: true means at
+   * most one job of that group runs at a time, whatever the global concurrency.
+   */
+  add({ kind, label, inputs, options = {}, groupId = null, sequential = false, depth = 0 }) {
     seq += 1;
     const id = `j${Date.now().toString(36)}${seq}`;
     const job = {
@@ -38,6 +42,9 @@ class JobQueue extends EventEmitter {
       label,
       inputs,
       options,
+      groupId,
+      sequential: !!sequential,
+      depth,
       state: "queued",
       progress: 0,
       stage: "Queued",
@@ -129,10 +136,16 @@ class JobQueue extends EventEmitter {
 
   #pump() {
     while (this.running < this.concurrency) {
-      const next = this.list().find((j) => j.state === "queued");
+      const runningGroups = new Set(this.list().filter((j) => j.state === "running" && j.sequential && j.groupId).map((j) => j.groupId));
+      const next = this.list().find((j) => j.state === "queued" && !(j.sequential && j.groupId && runningGroups.has(j.groupId)));
       if (!next) break;
       this.#start(next);
     }
+  }
+
+  /** Jobs belonging to a group, in queue order. */
+  group(groupId) {
+    return this.list().filter((j) => j.groupId === groupId);
   }
 
   #start(job) {

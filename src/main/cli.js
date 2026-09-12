@@ -6,7 +6,7 @@
 //   Unpacker.exe --convert "C:\x.rar"
 //   Unpacker.exe --test "C:\x.7z"
 
-const FLAGS = ["--compress", "--extract-here", "--extract-to", "--convert", "--test"];
+const FLAGS = ["--compress", "--extract-here", "--extract-to", "--extract-all", "--convert", "--test"];
 
 function parseCli(argv) {
   const out = [];

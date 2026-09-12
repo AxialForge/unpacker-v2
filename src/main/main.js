@@ -12,10 +12,12 @@ const sevenzip = require("./engine/sevenzip");
 const rarEngine = require("./engine/rar");
 const { JobQueue } = require("./jobs/queue");
 const { Runner } = require("./jobs/runner");
+const { GroupRegistry } = require("./groups");
 const shellIntegration = require("./shell-integration");
 const takeout = require("./takeout");
 const analyze = require("./analyze");
 const chunker = require("./chunker");
+const scan = require("./scan");
 const updater = require("./updater");
 
 const DEV = process.argv.includes("--dev");
@@ -45,6 +47,7 @@ let engineInfo = { path: null, version: null, error: null };
 let rar = null;
 let queue = null;
 let runner = null;
+let groups = null;
 
 const pendingCompress = { paths: [], timer: null };
 
@@ -129,6 +132,11 @@ function initQueue() {
     rar,
     settings: () => store.get(),
     trash: (p) => shell.trashItem(p),
+    spawn: (spec) => {
+      const j = queue.add(spec);
+      if (spec.groupId) groups.attach(spec.groupId, j.id);
+      return j;
+    },
   });
   queue = new JobQueue((job, ctx) => {
     if (!engine) throw Object.assign(new Error(engineInfo.error), { kind: "fatal" });
@@ -138,6 +146,8 @@ function initQueue() {
     if (mainWindow) mainWindow.webContents.send("jobs:change", job);
     onQueueActivity();
   });
+  groups = new GroupRegistry({ queue, trash: (p) => shell.trashItem(p) });
+  groups.on("change", (g) => mainWindow && mainWindow.webContents.send("groups:change", g));
   queue.on("removed", (id) => mainWindow && mainWindow.webContents.send("jobs:removed", id));
 }
 
@@ -157,6 +167,16 @@ async function addPaths({ paths = [], action = "auto", options = {} }) {
   if (action === "auto" && paths.length && paths.every((p) => takeout.isTakeoutPart(p))) {
     if (mainWindow) mainWindow.webContents.send("cli:request", { type: "takeout", paths: paths.map((p) => path.resolve(String(p))) });
     return { added: [], skipped: [], takeout: true };
+  }
+
+  // Several archives dropped at once in Auto mode: offer the mass-extract
+  // dialog (destination, nested archives, cleanup) instead of N loose jobs.
+  if (action === "auto" && paths.length >= 3 && paths.every((p) => {
+    const det = formats.detectArchive(p);
+    return det && det.entryPoint;
+  })) {
+    if (mainWindow) mainWindow.webContents.send("cli:request", { type: "extract-all", paths: paths.map((p) => path.resolve(String(p))) });
+    return { added: [], skipped: [], massExtract: true };
   }
 
   for (const raw of paths) {
@@ -203,31 +223,6 @@ async function addPaths({ paths = [], action = "auto", options = {} }) {
   return { added, skipped };
 }
 
-/** Recursively list archive entry points under a folder (for mass convert). */
-async function scanFolder(dir, signalDepth = 0) {
-  const found = [];
-  const walk = async (d, depth) => {
-    let entries = [];
-    try {
-      entries = await fsp.readdir(d, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries) {
-      const p = path.join(d, e.name);
-      if (e.isDirectory()) {
-        if (depth < 64) await walk(p, depth + 1);
-      } else {
-        const det = formats.detectArchive(p);
-        if (det && det.entryPoint) found.push(p);
-      }
-      if (found.length > 20000) return;
-    }
-  };
-  await walk(dir, signalDepth);
-  return found;
-}
-
 // ── IPC ─────────────────────────────────────────────────────────
 
 function registerIpc() {
@@ -253,7 +248,7 @@ function registerIpc() {
   ipcMain.handle("jobs:retry", (_e, { id, patch }) => queue.retry(id, patch || {}));
   ipcMain.handle("jobs:remove", (_e, id) => queue.remove(id));
   ipcMain.handle("jobs:clearFinished", () => queue.clearFinished());
-  ipcMain.handle("jobs:scanFolder", (_e, dir) => scanFolder(dir));
+  ipcMain.handle("jobs:scanFolder", (_e, dir) => scan.scanFolder(dir));
 
   // Takeout: accepts part files and/or folders (folders are scanned one level
   // deep, which is where a browser download leaves them).
@@ -298,6 +293,12 @@ function registerIpc() {
     if (r.canceled) return { added: [] };
     return { added: r.filePaths.map((p) => queue.add({ kind: "verify-manifest", label: path.basename(p), inputs: [p], options: {} })) };
   });
+  // Mass extract: scan inputs (files or folders) and start a sequential group.
+  ipcMain.handle("massExtract:scan", (_e, paths) => scan.collectArchives(paths || []));
+  ipcMain.handle("massExtract:start", (_e, { paths = [], options = {} }) => groups.start(paths, options));
+  ipcMain.handle("groups:list", () => groups.list());
+  ipcMain.handle("groups:cancel", (_e, id) => groups.cancel(id));
+  ipcMain.handle("groups:remove", (_e, id) => groups.remove(id));
   ipcMain.handle("takeout:defaultDest", (_e, partPath) => path.join(path.dirname(path.resolve(partPath)), "Takeout-merged"));
   ipcMain.handle("takeout:start", (_e, { exports = [], options = {} }) => {
     const added = [];

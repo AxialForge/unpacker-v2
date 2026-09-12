@@ -74,6 +74,8 @@ renderer/app.js --window.unpacker (preload, IPC invoke)--> main.js
                                                            ├─ analyze.js           enumerate inputs, classify by bucket, deflate probe, suggest()
                                                            ├─ chunker.js           bin-pack files under a size limit (deepest folders that fit stay whole)
                                                            ├─ manifest.js          8-char ID, render/parse manifest, streaming SHA-256
+                                                           ├─ scan.js              scanFolder / collectArchives (shared by mass convert, mass extract, nested)
+                                                           ├─ groups.js            GroupRegistry: mass-extract batches, sequential run, after-all hook, report
                                                            ├─ safety.js            traversal, bomb ratio, long paths, uniquePath, safeFileName
                                                            ├─ shell-integration.js HKCU context-menu verbs via reg.exe
                                                            ├─ store.js             settings.json in userData
@@ -111,6 +113,17 @@ pack:     enumerate (rel to common root) → plan: none | chunks (planChunks, ov
 verify-manifest: per chunk: exists → 7z t → [deep: extract to temp, SHA-256 every listed file]
           → <stem>_<ID>.verify.txt; fails with a MISSING/DAMAGED/CHANGED summary
 ```
+
+Mass extract (`groups.js`): `GroupRegistry.start(paths, options)` queues one
+`extract` job per archive with `groupId` and `sequential`; the queue's pump
+never runs two sequential jobs of one group at once. `runner.afterExtract`
+scans the output for nested archives (options.nested `keep|remove`, depth
+cap 3) and `spawn`s children into the same group; `removeSelf` bins a nested
+archive after its own extraction. When every job (children included) is
+terminal the registry bins sources only if ALL succeeded and writes
+`Mass-extract-report.txt` in the merge folder or beside the archives.
+Dropping three or more archives in Auto mode opens the mass-extract dialog
+(`cli:request` type `extract-all`), as does the Explorer folder verb.
 
 Chunks are packed by RAW size with a 0.5% margin; the deepest folder that
 fits under the cap travels as one unit (`chunker.planChunks`). Don't group by

@@ -398,6 +398,55 @@ input[type="password"] {
   text-decoration: none;
 }
 
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.groups:empty {
+  display: none;
+}
+.group {
+  background: var(--bg3);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 10px;
+}
+.group .title {
+  font-weight: 600;
+}
+.group .bar {
+  grid-column: 1 / -1;
+  height: 6px;
+  background: var(--bg2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.group .bar > i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.15s;
+}
+.group.finished .bar > i {
+  background: var(--ok);
+}
+.group.trouble .bar > i {
+  background: var(--warn);
+}
+.group .status {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--muted);
+}
+.group .actions {
+  display: flex;
+  gap: 6px;
+}
+
 .notices {
   padding: 0 12px 8px;
   display: flex;

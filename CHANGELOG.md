@@ -40,6 +40,11 @@ All notable changes to this project are documented here. The format follows
 - Manifest placement "inside the archives only"; Verify a manifest accepts an
   archive and reads the copy inside it.
 - Warnings shown amber on finished jobs; duplicate inputs skipped; app icon.
+- Mass extract: scan a folder (or drop several archives, or the Explorer
+  "Extract all archives in here" verb) and extract each into its own folder,
+  merge into one folder, or beside each archive; nested archives extracted
+  (kept or binned) up to three levels; sequential by default; sources binned
+  only if everything succeeded; group summary row and report.
 
 ### Fixed
 

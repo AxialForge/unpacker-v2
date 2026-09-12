@@ -15,6 +15,13 @@ all just work, on files of any size.
   password instead of failing).
 - **Mass convert** — drop a stack of archives, or scan a whole folder, and
   repack them all as 7z/ZIP/tar.*; verified before the original is touched.
+- **Mass extract** — point it at a folder of mixed ZIP/RAR/7z/tar.* (or drop
+  several archives, or right-click a folder in Explorer). Each archive into
+  its own folder, everything merged into one folder, or contents next to each
+  archive. Archives found inside the extracted files can be extracted too
+  (and optionally binned), one at a time so the disk isn't thrashed. Sources
+  go to the Recycle Bin only when every archive succeeded; a
+  `Mass-extract-report.txt` says what happened.
 - **Test** archive integrity.
 - **Smart compress** — drop files in Compress mode and the app analyzes them
   (what they are, plus how well a sample actually deflates) and suggests a
