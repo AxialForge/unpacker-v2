@@ -371,6 +371,11 @@ app.whenReady().then(() => {
   });
   const cli = parseCli(process.argv.slice(app.isPackaged ? 1 : 2));
   if (cli.length) mainWindow.webContents.once("did-finish-load", () => handleCli(cli));
+  const shotIdx = process.argv.indexOf("--screenshot");
+  if (!app.isPackaged && shotIdx > 0 && process.argv[shotIdx + 1]) {
+    mainWindow.setSize(1100, 720);
+    mainWindow.webContents.once("did-finish-load", () => setTimeout(() => runScreenshots(path.resolve(process.argv[shotIdx + 1])).catch((e) => { console.error(e); app.quit(); }), 600));
+  }
 });
 
 // ── long-job protection: close confirmation, tray, sleep blocker ──
@@ -473,6 +478,75 @@ async function handleClose(event) {
   } else if (response === 1) {
     quitNow();
   }
+}
+
+// ── screenshot mode (docs) ──────────────────────────────────────
+//   electron . --dev --screenshot <outDir>
+// Builds sample files in temp, runs real jobs, opens each dialog with that
+// sample data and saves PNGs. Never runs in a packaged build.
+
+async function runScreenshots(outDir) {
+  const os = require("node:os");
+  const crypto = require("node:crypto");
+  const { execFileSync } = require("node:child_process");
+  fs.mkdirSync(outDir, { recursive: true });
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), "unp-shots-"));
+  const album = path.join(work, "Holiday 2026");
+  fs.mkdirSync(path.join(album, "Day 1"), { recursive: true });
+  fs.mkdirSync(path.join(album, "Day 2"), { recursive: true });
+  for (let i = 1; i <= 6; i += 1) fs.writeFileSync(path.join(album, `Day ${i <= 3 ? 1 : 2}`, `IMG_${1000 + i}.jpg`), crypto.randomBytes(900_000));
+  fs.writeFileSync(path.join(album, "Day 2", "clip.mp4"), crypto.randomBytes(4_000_000));
+  fs.writeFileSync(path.join(album, "notes.txt"), "Trip notes\n".repeat(400));
+  const docs = path.join(work, "Documents");
+  fs.mkdirSync(docs);
+  for (let i = 1; i <= 40; i += 1) fs.writeFileSync(path.join(docs, `report-${String(i).padStart(2, "0")}.txt`), `Quarterly report ${i}\n`.repeat(300));
+  const dl = path.join(work, "Downloads");
+  fs.mkdirSync(dl);
+  const exe = engineInfo.path;
+  execFileSync(exe, ["a", "-tzip", path.join(dl, "vacation-photos.zip"), "Holiday 2026"], { cwd: work, windowsHide: true });
+  execFileSync(exe, ["a", "-t7z", path.join(dl, "project-files.7z"), "Documents"], { cwd: work, windowsHide: true });
+  execFileSync(exe, ["a", "-ttar", path.join(work, "site.tar"), "Documents"], { cwd: work, windowsHide: true });
+  execFileSync(exe, ["a", "-tgzip", path.join(dl, "site-backup.tar.gz"), path.join(work, "site.tar")], { cwd: work, windowsHide: true });
+  const tk = path.join(work, "Takeout downloads");
+  fs.mkdirSync(path.join(work, "tkstage", "Takeout", "Google Photos", "Trip"), { recursive: true });
+  fs.writeFileSync(path.join(work, "tkstage", "Takeout", "Google Photos", "Trip", "IMG_1.jpg"), crypto.randomBytes(300_000));
+  fs.mkdirSync(tk);
+  for (const n of ["001", "002", "003", "005"]) execFileSync(exe, ["a", "-tzip", path.join(tk, `takeout-20260912T140102Z-${n}.zip`), "Takeout"], { cwd: path.join(work, "tkstage"), windowsHide: true });
+
+  const shot = async (name) => {
+    await new Promise((r) => setTimeout(r, 900));
+    const img = await mainWindow.webContents.capturePage();
+    fs.writeFileSync(path.join(outDir, `${name}.png`), img.toPNG());
+  };
+  const open = (which, paths) => mainWindow.webContents.send("shot:open", { which, paths });
+  const settle = () => new Promise((res) => {
+    const check = () => (queue.running || queue.pending ? setTimeout(check, 150) : res());
+    check();
+  });
+
+  // real jobs for the queue view
+  queue.add({ kind: "extract", label: "vacation-photos.zip", inputs: [path.join(dl, "vacation-photos.zip")], options: {} });
+  queue.add({ kind: "convert", label: "project-files.7z", inputs: [path.join(dl, "project-files.7z")], options: { format: "zip", level: 5 } });
+  queue.add({ kind: "test", label: "site-backup.tar.gz", inputs: [path.join(dl, "site-backup.tar.gz")], options: {} });
+  await settle();
+  queue.add({ kind: "pack", label: "Holiday 2026", inputs: [album], options: { format: "zip", level: 0, chunkSize: "", manifest: true, hash: true, appVersion: app.getVersion() } });
+  await new Promise((r) => setTimeout(r, 400));
+  await shot("01-queue");
+  await settle();
+  await shot("02-queue-done");
+  open("pack", [album]);
+  await shot("03-smart-compress");
+  open("takeout", [tk]);
+  await shot("04-takeout");
+  open("massExtract", [dl]);
+  await shot("05-mass-extract");
+  open("convert", [path.join(dl, "vacation-photos.zip"), path.join(dl, "project-files.7z"), path.join(dl, "site-backup.tar.gz")]);
+  await shot("06-mass-convert");
+  open("settings", []);
+  await shot("07-settings");
+  fs.rmSync(work, { recursive: true, force: true });
+  console.log(`screenshots written to ${outDir}`);
+  app.quit();
 }
 
 app.on("window-all-closed", () => {

@@ -56,6 +56,14 @@ async function boot() {
     refreshStats();
   });
   api.onCliRequest(handleCliRequest);
+  api.onShot(async ({ which, paths }) => {
+    for (const id of ["pwModal", "convModal", "pkModal", "tkModal", "meModal", "setModal"]) $(id).hidden = true;
+    if (which === "pack") await openPackModal(paths);
+    else if (which === "takeout") await openTakeoutModal(paths);
+    else if (which === "massExtract") await openMassExtractModal(paths);
+    else if (which === "settings") await openSettings();
+    else if (which === "convert") openConvertModal(paths, `${paths.length} archives selected.`);
+  });
   api.update.onStatus((s) => {
     if (s.state === "ready") notice(`Update ${s.version} downloaded. It installs when you close the app.`, "ok", 0, { label: "Restart now", fn: () => api.update.installNow() });
   });

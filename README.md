@@ -1,5 +1,7 @@
 # Unpacker V2
 
+![Unpacker V2 main window](docs/screenshots/02-queue-done.png)
+
 A drag-and-drop Windows archiver that stays out of your way: drop archives to
 extract them, drop anything else to compress it, or point it at a folder and
 convert every archive inside to one format. Built on the 7-Zip engine, so
@@ -97,9 +99,28 @@ npm test          # node --test, pure modules only
 npm run dist      # dist/unpacker-v2-<ver>-setup.exe
 ```
 
+## Documentation
+
+- [User guide](docs/USER-GUIDE.md) — every flow, with screenshots.
+- [Project site](https://axialforge.github.io/unpacker-v2/) — the same, prettier.
+- [CHANGELOG](CHANGELOG.md) and [what's planned](docs/DESIGN-NEXT.md).
+- [CLAUDE.md](CLAUDE.md) — architecture, invariants and the gotchas that cost
+  real debugging time. Read it before changing anything.
+
+## Screens
+
+| Smart compress | Google Takeout |
+| --- | --- |
+| ![Smart compress](docs/screenshots/03-smart-compress.png) | ![Google Takeout](docs/screenshots/04-takeout.png) |
+
+| Mass extract | Settings |
+| --- | --- |
+| ![Mass extract](docs/screenshots/05-mass-extract.png) | ![Settings](docs/screenshots/07-settings.png) |
+
 ## Install
 
-Grab the latest `unpacker-v2-<version>-setup.exe` from Releases. One-click,
+Grab the latest `unpacker-v2-<version>-setup.exe` from
+[Releases](https://github.com/AxialForge/unpacker-v2/releases/latest). One-click,
 per-user install (no admin), silent auto-update from GitHub Releases.
 The build is unsigned; SmartScreen will warn the first time.
 

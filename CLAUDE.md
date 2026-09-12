@@ -49,6 +49,8 @@ npm install          # Node 22+; Node 24 fine (no native modules)
 npm run dev          # from source; add --devtools for the inspector
 npm test             # node --test test/**/*.test.js (pure modules)
 npm run dist         # dist/unpacker-v2-<ver>-setup.exe, no publish
+node scripts/make-icons.js                              # regenerate assets/icon*.png, icon.ico, tray.png
+npx electron . --dev --screenshot docs/screenshots      # real captures for the docs (builds sample data, runs jobs)
 ```
 
 Explorer verbs from the command line (also what the context menu runs):

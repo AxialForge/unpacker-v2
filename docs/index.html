@@ -4,98 +4,95 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Unpacker V2</title>
-    <meta name="description" content="Create, extract, test and mass-convert ZIP/7z/tar and more; extracts RAR" />
+    <meta name="description" content="Drag-and-drop Windows archiver on the 7-Zip engine: create, extract, test and mass-convert ZIP/7z/tar; extracts RAR; Google Takeout merging; size-limited archival sets with manifests." />
+    <link rel="icon" href="icon-32.png" />
     <style>
       :root {
-        --bg: #0f1115;
-        --panel: #171a21;
-        --fg: #e7e9ee;
-        --muted: #9aa3b2;
-        --accent: #3b74f0;
-        --border: #262b35;
+        --bg: #14171c; --panel: #1b1f26; --panel2: #232833; --fg: #e6e9ef; --muted: #8b93a3; --accent: #4f8cff; --border: #2e3442; --ok: #3ccf7a;
       }
       @media (prefers-color-scheme: light) {
-        :root {
-          --bg: #ffffff;
-          --panel: #f5f6f8;
-          --fg: #14171d;
-          --muted: #5a6472;
-          --accent: #1e50e5;
-          --border: #e0e3e9;
-        }
+        :root { --bg: #f4f6fa; --panel: #ffffff; --panel2: #eef1f6; --fg: #1b1f26; --muted: #5d6675; --accent: #2f6db5; --border: #d6dbe5; }
       }
       * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        padding: 4rem 1.25rem;
-        background: var(--bg);
-        color: var(--fg);
-        font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif;
-      }
-      main { max-width: 46rem; margin: 0 auto; }
-      h1 { font-size: clamp(2rem, 6vw, 3rem); margin: 0 0 0.5rem; letter-spacing: -0.02em; }
-      .tagline { color: var(--muted); font-size: 1.15rem; margin: 0 0 2.5rem; }
-      h2 { font-size: 1.15rem; margin: 2.5rem 0 0.75rem; }
-      .cta {
-        display: inline-block;
-        background: var(--accent);
-        color: #fff;
-        text-decoration: none;
-        font-weight: 600;
-        padding: 0.7rem 1.4rem;
-        border-radius: 8px;
-      }
-      .cta:hover { filter: brightness(1.1); }
-      .secondary { color: var(--muted); margin-left: 1rem; }
-      ul { padding-left: 1.2rem; }
-      li { margin: 0.4rem 0; }
-      pre {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 1rem;
-        overflow-x: auto;
-      }
-      footer {
-        margin-top: 4rem;
-        padding-top: 1.5rem;
-        border-top: 1px solid var(--border);
-        color: var(--muted);
-        font-size: 0.9rem;
-      }
+      body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif; }
       a { color: var(--accent); }
+      .wrap { max-width: 64rem; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+      header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+      header img { width: 56px; height: 56px; border-radius: 12px; }
+      h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); margin: 0; letter-spacing: -0.02em; }
+      .tagline { color: var(--muted); font-size: 1.1rem; margin: 0.4rem 0 1.6rem; max-width: 46rem; }
+      .cta { display: inline-block; background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; padding: 0.7rem 1.3rem; border-radius: 8px; }
+      .cta:hover { filter: brightness(1.1); }
+      .links { margin: 0.9rem 0 2.2rem; display: flex; gap: 1.2rem; flex-wrap: wrap; font-size: 0.95rem; }
+      .hero { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--panel); }
+      .hero img { display: block; width: 100%; height: auto; }
+      h2 { font-size: 1.25rem; margin: 2.6rem 0 0.8rem; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 12px; }
+      .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+      .card h3 { margin: 0 0 6px; font-size: 1rem; }
+      .card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+      .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 14px; }
+      figure { margin: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+      figure img { display: block; width: 100%; height: auto; }
+      figcaption { padding: 8px 12px; font-size: 0.9rem; color: var(--muted); }
+      ul { padding-left: 1.2rem; }
+      li { margin: 0.35rem 0; }
+      code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.92em; background: var(--panel2); padding: 1px 5px; border-radius: 4px; }
+      pre { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; }
+      footer { margin-top: 3.5rem; padding-top: 1.4rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.9rem; }
     </style>
   </head>
   <body>
-    <main>
-      <h1>Unpacker V2</h1>
-      <p class="tagline">Drag-and-drop archiver built on 7-Zip</p>
+    <div class="wrap">
+      <header>
+        <img src="icon-64.png" alt="" width="56" height="56" />
+        <h1>Unpacker V2</h1>
+      </header>
+      <p class="tagline">A drag-and-drop Windows archiver on the 7-Zip engine. Extract anything, compress with a suggestion that fits the files, merge Google Takeout exports, and build size-limited archival sets you can verify years later.</p>
 
-      <p>
-        <a class="cta" href="https://github.com/AxialForge/Unpacker V2/releases/latest">Download</a>
-        <a class="secondary" href="https://github.com/AxialForge/Unpacker V2">Source on GitHub</a>
-      </p>
+      <p><a class="cta" href="https://github.com/AxialForge/unpacker-v2/releases/latest">Download for Windows</a></p>
+      <div class="links">
+        <a href="USER-GUIDE.md">User guide</a>
+        <a href="https://github.com/AxialForge/unpacker-v2">Source on GitHub</a>
+        <a href="https://github.com/AxialForge/unpacker-v2/blob/main/CHANGELOG.md">Changelog</a>
+        <a href="DESIGN-NEXT.md">What's planned</a>
+      </div>
+
+      <div class="hero"><img src="screenshots/02-queue-done.png" alt="Unpacker V2 main window with four finished jobs in the queue" /></div>
 
       <h2>What it does</h2>
+      <div class="grid">
+        <div class="card"><h3>Extracts everything 7-Zip reads</h3><p>ZIP, 7z, RAR/RAR5, tar and tar.gz/xz/bz2/zst, cab, iso, wim, split sets. Encrypted archives ask for a password instead of failing.</p></div>
+        <div class="card"><h3>Smart compress</h3><p>Analyzes what you dropped and suggests Store for media, solid 7z for documents, capped blocks for mixed sets. Everyday, Archival and Custom presets.</p></div>
+        <div class="card"><h3>Size-limited sets with manifests</h3><p>1–50 GB per archive as independent archives or volumes. An 8-character ID links the set and a manifest with optional SHA-256; verify it later.</p></div>
+        <div class="card"><h3>Google Takeout</h3><p>Groups the numbered parts, flags missing ones, checks every download first, then merges them one at a time. Interrupted runs resume.</p></div>
+        <div class="card"><h3>Mass extract and convert</h3><p>Point it at a folder of mixed archives. Each into its own folder or all merged; nested archives too; sources binned only when everything succeeded.</p></div>
+        <div class="card"><h3>Built for jobs you walk away from</h3><p>Keeps the PC awake, asks before closing, removes half-written archives on cancel, refuses archives that could write outside the target.</p></div>
+      </div>
+
+      <h2>Screens</h2>
+      <div class="shots">
+        <figure><img src="screenshots/03-smart-compress.png" alt="Smart compress dialog" /><figcaption>Smart compress: analysis, suggestion, size limit and manifest options.</figcaption></figure>
+        <figure><img src="screenshots/04-takeout.png" alt="Google Takeout dialog" /><figcaption>Google Takeout: exports found, missing parts flagged, merge options.</figcaption></figure>
+        <figure><img src="screenshots/05-mass-extract.png" alt="Mass extract dialog" /><figcaption>Mass extract: destination modes, nested archives, cleanup.</figcaption></figure>
+        <figure><img src="screenshots/07-settings.png" alt="Settings dialog" /><figcaption>Settings: concurrency, safety guards, tray and sleep behaviour, Explorer menu.</figcaption></figure>
+      </div>
+
+      <h2>Install</h2>
       <ul>
-        <li><!-- feature --></li>
-        <li><!-- feature --></li>
+        <li>Windows 10 or 11, 64-bit. No 7-Zip install needed; the engine ships inside.</li>
+        <li>Per-user one-click installer, no administrator prompt. Updates itself from GitHub Releases (can be turned off).</li>
+        <li>Unsigned build: SmartScreen warns the first time. "More info" → "Run anyway".</li>
+        <li>RAR <em>creation</em> needs an installed WinRAR; extraction does not.</li>
       </ul>
 
-      <h2>Requirements</h2>
-      <ul>
-        <li><!-- runtime / OS --></li>
-      </ul>
+      <h2>From source</h2>
+      <pre>git clone https://github.com/AxialForge/unpacker-v2.git
+cd unpacker-v2
+npm install
+npm run dev</pre>
 
-      <h2>Build it yourself</h2>
-      <pre><code>git clone https://github.com/AxialForge/Unpacker V2.git
-cd Unpacker V2
-# install + build</code></pre>
-
-      <footer>
-        MIT licensed &middot; built by
-        <a href="https://github.com/AxialForge">AxialForge</a>
-      </footer>
-    </main>
+      <footer>MIT licence. Bundled 7-Zip © Igor Pavlov, LGPL with the unRAR restriction. Made by AxialForge.</footer>
+    </div>
   </body>
 </html>

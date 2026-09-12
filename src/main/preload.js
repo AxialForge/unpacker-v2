@@ -75,6 +75,8 @@ contextBridge.exposeInMainWorld("unpacker", {
       return "";
     }
   },
+  // Screenshot mode (dev only): main asks the renderer to open a dialog with sample data.
+  onShot: (cb) => on("shot:open", cb),
   // { busy, awake }: whether jobs are running and the sleep blocker is held.
   onActivity: (cb) => on("app:activity", cb),
   // Explorer verbs that need a decision (extract-to, convert) arrive here.
