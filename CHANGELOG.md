@@ -18,3 +18,8 @@ All notable changes to this project are documented here. The format follows
 - Traversal and zip-bomb guards; free-disk-space checks before work starts.
 - Explorer right-click entries (HKCU, no admin) with multi-select coalescing.
 - Silent auto-update from GitHub Releases.
+- Google Takeout flow: groups numbered parts into exports, reports missing
+  parts, verifies downloads first, checks space for the whole export, merges
+  parts sequentially into one folder with skip/overwrite/keep-both, resumes
+  interrupted runs, optional wrapper removal, JSON sidecar tidy, and
+  Recycle-Bin cleanup of the parts. Dropping Takeout parts opens this flow.

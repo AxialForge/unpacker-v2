@@ -16,6 +16,13 @@ all just work, on files of any size.
 - **Mass convert** — drop a stack of archives, or scan a whole folder, and
   repack them all as 7z/ZIP/tar.*; verified before the original is touched.
 - **Test** archive integrity.
+- **Google Takeout** — point it at your downloads folder (or drop the parts)
+  and it groups the numbered parts into exports, flags missing parts, checks
+  every download for damage first, checks disk space for the whole export,
+  then merges the parts one at a time into a single folder. Interrupted runs
+  resume. Options: skip/overwrite/keep-both on collisions, drop the `Takeout/`
+  wrapper, tidy Google Photos JSON sidecars into `_json` folders, Recycle-Bin
+  the parts when done. A `Takeout-import-report.txt` lands in the folder.
 - Password / AES encryption, split volumes (FAT32-safe 4 GB preset), verify
   after every job, per-job cancel, a bounded parallel queue.
 - Optional Explorer right-click entries: *Add to archive*, *Extract here*,

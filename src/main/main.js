@@ -13,6 +13,7 @@ const rarEngine = require("./engine/rar");
 const { JobQueue } = require("./jobs/queue");
 const { Runner } = require("./jobs/runner");
 const shellIntegration = require("./shell-integration");
+const takeout = require("./takeout");
 const updater = require("./updater");
 
 const DEV = process.argv.includes("--dev");
@@ -146,6 +147,13 @@ async function addPaths({ paths = [], action = "auto", options = {} }) {
   const toCompress = [];
   const seen = new Set();
 
+  // Dropping Takeout parts in Auto mode opens the Takeout dialog instead of
+  // extracting each part on its own: the parts belong together.
+  if (action === "auto" && paths.length && paths.every((p) => takeout.isTakeoutPart(p))) {
+    if (mainWindow) mainWindow.webContents.send("cli:request", { type: "takeout", paths: paths.map((p) => path.resolve(String(p))) });
+    return { added: [], skipped: [], takeout: true };
+  }
+
   for (const raw of paths) {
     const p = path.resolve(String(raw));
     if (seen.has(p.toLowerCase())) continue;
@@ -237,6 +245,45 @@ function registerIpc() {
   ipcMain.handle("jobs:remove", (_e, id) => queue.remove(id));
   ipcMain.handle("jobs:clearFinished", () => queue.clearFinished());
   ipcMain.handle("jobs:scanFolder", (_e, dir) => scanFolder(dir));
+
+  // Takeout: accepts part files and/or folders (folders are scanned one level
+  // deep, which is where a browser download leaves them).
+  ipcMain.handle("takeout:scan", async (_e, inputs) => {
+    const files = [];
+    for (const raw of inputs || []) {
+      const p = path.resolve(String(raw));
+      let st;
+      try {
+        st = await fsp.stat(p);
+      } catch {
+        continue;
+      }
+      if (st.isDirectory()) {
+        for (const n of await fsp.readdir(p)) if (takeout.isTakeoutPart(n)) files.push(path.join(p, n));
+      } else if (takeout.isTakeoutPart(p)) files.push(p);
+    }
+    const sizes = new Map();
+    for (const f of files) sizes.set(f, (await fsp.stat(f)).size);
+    return takeout.groupTakeout(files, (f) => sizes.get(f) || 0);
+  });
+  ipcMain.handle("takeout:defaultDest", (_e, partPath) => path.join(path.dirname(path.resolve(partPath)), "Takeout-merged"));
+  ipcMain.handle("takeout:start", (_e, { exports = [], options = {} }) => {
+    const added = [];
+    for (const ex of exports) {
+      const parts = ex.parts.map((p) => (typeof p === "string" ? p : p.path));
+      if (!parts.length) continue;
+      const dest = options.dest || path.join(path.dirname(parts[0]), "Takeout-merged");
+      added.push(
+        queue.add({
+          kind: "takeout",
+          label: `Takeout ${ex.date || ex.stamp || ""} (${parts.length} part${parts.length === 1 ? "" : "s"})`,
+          inputs: parts,
+          options: { ...options, dest: exports.length > 1 ? path.join(dest, ex.stamp || ex.id) : dest },
+        })
+      );
+    }
+    return { added };
+  });
 
   ipcMain.handle("dialog:chooseFiles", async () => {
     const r = await dialog.showOpenDialog(mainWindow, { properties: ["openFile", "multiSelections"] });

@@ -25,6 +25,13 @@ contextBridge.exposeInMainWorld("unpacker", {
     onChange: (cb) => on("jobs:change", cb),
     onRemoved: (cb) => on("jobs:removed", cb),
   },
+  takeout: {
+    // scan(paths|folders) -> exports grouped by timestamp with sizes and gaps
+    scan: (paths) => ipcRenderer.invoke("takeout:scan", paths),
+    // start({ exports:[{parts:[paths]}], options }) -> one job per export
+    start: (req) => ipcRenderer.invoke("takeout:start", req),
+    defaultDest: (partPath) => ipcRenderer.invoke("takeout:defaultDest", partPath),
+  },
   dialog: {
     chooseFiles: () => ipcRenderer.invoke("dialog:chooseFiles"),
     chooseFolder: (title) => ipcRenderer.invoke("dialog:chooseFolder", title),

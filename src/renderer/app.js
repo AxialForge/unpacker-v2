@@ -146,6 +146,16 @@ function wireUi() {
     if (!found.length) return notice("No archives found in that folder.", "warn");
     openConvertModal(found, `Found ${found.length} archive${found.length === 1 ? "" : "s"} under ${dirs.map(basename).join(", ")}.`);
   });
+  $("btnTakeout").addEventListener("click", async () => {
+    const dirs = await api.dialog.chooseFolder("Choose the folder holding your Takeout downloads");
+    if (dirs.length) openTakeoutModal(dirs);
+  });
+  $("tkCancel").addEventListener("click", () => ($("tkModal").hidden = true));
+  $("tkOk").addEventListener("click", startTakeout);
+  $("tkDestBrowse").addEventListener("click", async () => {
+    const [d] = await api.dialog.chooseFolder("Merge the export into which folder?");
+    if (d) $("tkDest").value = d;
+  });
   $("btnClear").addEventListener("click", () => api.jobs.clearFinished());
 
   // persist the panel choices as defaults
@@ -262,8 +272,82 @@ async function startConvert() {
   });
 }
 
+// ── google takeout ──────────────────────────────────────────────
+
+let tkExports = [];
+async function openTakeoutModal(inputs) {
+  tkExports = await api.takeout.scan(inputs);
+  if (!tkExports.length) return notice("No Takeout parts found. They are named like takeout-20260912T140102Z-001.zip (or .tgz).", "warn", 12000);
+  const box = $("tkExports");
+  box.innerHTML = "";
+  let total = 0;
+  tkExports.forEach((ex, i) => {
+    total += ex.totalBytes;
+    const row = document.createElement("label");
+    row.className = "tk-export";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = true;
+    cb.dataset.i = String(i);
+    const name = document.createElement("span");
+    name.textContent = `Export from ${ex.date} (${ex.format})`;
+    const size = document.createElement("span");
+    size.className = "mono";
+    size.textContent = fmtBytes(ex.totalBytes);
+    const meta = document.createElement("span");
+    meta.className = "meta";
+    meta.textContent = `${ex.parts.length} part${ex.parts.length === 1 ? "" : "s"}: ${basename(ex.parts[0].path)} … ${basename(ex.parts[ex.parts.length - 1].path)}`;
+    if (ex.missing.length) {
+      const gap = document.createElement("span");
+      gap.className = "gap";
+      gap.textContent = ` — missing part${ex.missing.length === 1 ? "" : "s"} ${ex.missing.map((n) => String(n).padStart(3, "0")).join(", ")}. Download them first, or merge what's here and re-run later.`;
+      meta.appendChild(gap);
+    }
+    row.append(cb, name, size, meta);
+    box.appendChild(row);
+  });
+  $("tkDest").value = await api.takeout.defaultDest(tkExports[0].parts[0].path);
+  $("tkSpace").textContent = `Downloads total ${fmtBytes(total)}. Extracted size is usually about the same for photos and videos and larger for mail and documents; the exact figure is checked against free space before anything is written.`;
+  $("tkModal").hidden = false;
+}
+
+async function startTakeout() {
+  const chosen = [...$("tkExports").querySelectorAll("input[type=checkbox]")].filter((c) => c.checked).map((c) => tkExports[Number(c.dataset.i)]);
+  if (!chosen.length) return;
+  const dest = $("tkDest").value.trim();
+  if (!dest) return notice("Choose a folder to merge into.", "warn");
+  $("tkModal").hidden = true;
+  const res = await api.takeout.start({
+    exports: chosen,
+    options: {
+      dest,
+      overwrite: $("tkOverwrite").value,
+      verifyFirst: $("tkVerify").checked,
+      resume: $("tkResume").checked,
+      flatten: $("tkFlatten").checked,
+      tidyJson: $("tkJson").checked,
+      trashParts: $("tkTrash").checked,
+    },
+  });
+  if (res.added.length) notice(`Merging ${res.added.length} export${res.added.length === 1 ? "" : "s"} into ${dest}. Parts run one at a time; you can close the lid on this one.`, "ok", 10000);
+}
+
+function fmtBytes(n) {
+  if (n == null || !Number.isFinite(n)) return "-";
+  const u = ["B", "KB", "MB", "GB", "TB"];
+  let v = n;
+  let i = 0;
+  while (v >= 1024 && i < u.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${v < 10 && i > 0 ? v.toFixed(1) : Math.round(v)} ${u[i]}`;
+}
+
 async function handleCliRequest({ type, paths }) {
-  if (type === "extract-to") {
+  if (type === "takeout") {
+    openTakeoutModal(paths);
+  } else if (type === "extract-to") {
     const [dest] = await api.dialog.chooseFolder("Extract to folder");
     if (dest) submitPaths(paths, "extract", { ...currentOptions(), dest });
   } else if (type === "convert") {

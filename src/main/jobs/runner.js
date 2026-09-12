@@ -12,6 +12,7 @@ const { detectArchive, TARGETS, LEVELS } = require("../engine/formats");
 const { EngineError, singleRoot } = require("../engine/sevenzip");
 const rarEngine = require("../engine/rar");
 const safety = require("../safety");
+const takeout = require("../takeout");
 
 const MAX_WALK_ENTRIES = 250000; // stop estimating input size beyond this; the job still runs
 
@@ -40,6 +41,8 @@ class Runner {
         return this.convert(job, ctx);
       case "test":
         return this.test(job, ctx);
+      case "takeout":
+        return this.takeout(job, ctx);
       default:
         throw new Error(`Unknown job kind: ${job.kind}`);
     }
@@ -326,6 +329,114 @@ class Runner {
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
+  }
+
+  /**
+   * One Google Takeout export: every part merged into one folder, in order.
+   * options: { dest, overwrite:"skip"|"overwrite"|"rename", verifyFirst, flatten,
+   *            tidyJson, trashParts, resume }
+   * Parts are processed strictly one at a time (they land on the same disk),
+   * and a state file in `dest` lets an interrupted run pick up where it left off.
+   */
+  async takeout(job, ctx) {
+    const o = job.options;
+    const parts = job.inputs.map((p) => path.resolve(p));
+    const dest = path.resolve(o.dest);
+    fs.mkdirSync(dest, { recursive: true });
+    const report = [];
+    const log = (line) => report.push(line);
+
+    // Which parts still need doing?
+    const state = o.resume === false ? { done: {} } : takeout.readState(dest);
+    const stats = await Promise.all(parts.map((p) => fsp.stat(p)));
+    const todo = [];
+    parts.forEach((p, i) => {
+      if (takeout.partIsDone(state, { path: p }, stats[i])) log(`skip  ${path.basename(p)} (already extracted earlier)`);
+      else todo.push({ path: p, size: stats[i].size, st: stats[i] });
+    });
+    if (!todo.length) {
+      log("nothing to do: every part was already extracted");
+    }
+    const totalBytes = todo.reduce((n, p) => n + p.size, 0) || 1;
+
+    // 1. Verify downloads before writing anything (a truncated part 7 of 12 is
+    //    far better found now than after 300 GB of extraction).
+    let base = 0;
+    if (o.verifyFirst && todo.length) {
+      ctx.stage(`Checking ${todo.length} downloads`);
+      let acc = 0;
+      for (const part of todo) {
+        const from = (acc / totalBytes) * 15;
+        const to = ((acc + part.size) / totalBytes) * 15;
+        try {
+          await this.sevenZip.test(part.path, { signal: ctx.signal, onProgress: scale(ctx, from, to) });
+        } catch (err) {
+          throw new EngineError({ kind: err.kind || "corrupt", message: `${path.basename(part.path)} failed its integrity check (${err.message}). Re-download that part from Google, then run again; finished parts are skipped.` }, err.output);
+        }
+        acc += part.size;
+      }
+      base = 15;
+    }
+
+    // 2. Size everything up front so the space check covers the WHOLE export.
+    ctx.stage("Measuring export");
+    let need = 0;
+    const det0 = todo.length ? detectArchive(todo[0].path) : null;
+    for (const part of todo) {
+      const listing = await this.sevenZip.list(part.path, { signal: ctx.signal, inner: det0 && det0.inner });
+      const bad = safety.unsafeEntries(listing.entries.map((e) => e.path));
+      if (bad.length) throw new EngineError({ kind: "unsafe", message: `${path.basename(part.path)} contains an unsafe path ("${bad[0]}")` }, "");
+      part.files = listing.totals.files;
+      need += listing.totals.size;
+    }
+    await this.ensureSpace(dest, need + 64 * 1024 * 1024, "the merged export");
+    log(`export needs about ${safety.fmtBytes(need)} in ${dest}`);
+
+    // 3. Extract parts strictly in order, each merged into the same folder.
+    let acc = 0;
+    const tempDir = det0 && det0.inner ? this.tempDirFor(job) : null;
+    try {
+      for (const part of todo) {
+        const from = base + 5 + ((acc / totalBytes) * 75);
+        const to = base + 5 + (((acc + part.size) / totalBytes) * 75);
+        ctx.stage(`Extracting ${path.basename(part.path)} (${todo.indexOf(part) + 1}/${todo.length}, ${part.files} files)`);
+        await this.sevenZip.extract(part.path, dest, {
+          inner: det0 && det0.inner,
+          tempDir,
+          overwrite: o.overwrite || "skip",
+          signal: ctx.signal,
+          onProgress: scale(ctx, from, to),
+          onWarning: (m) => ctx.warn(`${path.basename(part.path)}: ${m}`),
+        });
+        state.done[path.basename(part.path)] = { size: part.st.size, mtimeMs: part.st.mtimeMs, at: new Date().toISOString() };
+        takeout.writeState(dest, state);
+        log(`done  ${path.basename(part.path)}: ${part.files} files`);
+        acc += part.size;
+      }
+    } finally {
+      if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+
+    // 4. Post-processing, only after every part is in.
+    if (o.flatten) {
+      ctx.stage("Removing the Takeout wrapper folder");
+      const r = takeout.flattenRoot(dest);
+      log(`flattened Takeout/: moved ${r.moved} items${r.skipped ? `, left ${r.skipped} that already existed` : ""}`);
+    }
+    if (o.tidyJson) {
+      ctx.stage("Tidying Google Photos JSON sidecars");
+      const r = takeout.tidyPhotoSidecars(dest);
+      log(`moved ${r.moved} JSON sidecars into _json folders`);
+    }
+    if (o.trashParts) {
+      ctx.stage("Moving the downloaded parts to the Recycle Bin");
+      for (const p of parts) await this.trash(p);
+      log(`moved ${parts.length} part files to the Recycle Bin`);
+    }
+    takeout.clearState(dest);
+    fs.writeFileSync(path.join(dest, "Takeout-import-report.txt"), `Unpacker V2 - Google Takeout import\n${new Date().toISOString()}\n\n${report.join("\n")}\n`);
+    ctx.progress({ percent: 100 });
+    return { output: dest };
   }
 
   async test(job, ctx) {

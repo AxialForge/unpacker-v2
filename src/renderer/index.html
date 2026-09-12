@@ -34,6 +34,7 @@
           <button id="btnAddFolder" class="btn">Add folder…</button>
           <button id="btnOpenArchives" class="btn">Open archives…</button>
           <button id="btnMassConvert" class="btn accent">Mass convert a folder…</button>
+          <button id="btnTakeout" class="btn accent" title="Merge a Google Takeout export (all its numbered parts) into one folder">Google Takeout…</button>
         </div>
 
         <div class="panel">
@@ -135,6 +136,44 @@
         <div class="modal-actions">
           <button id="convCancel" class="btn ghost">Cancel</button>
           <button id="convOk" class="btn accent">Start</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- google takeout -->
+    <div id="tkModal" class="modal" hidden>
+      <div class="modal-card wide">
+        <h3>Google Takeout</h3>
+        <p class="muted">Takeout splits an export into numbered parts that all share one <span class="mono">Takeout/</span> folder. They are merged into a single folder, one part at a time, in order.</p>
+        <div id="tkExports" class="tk-exports"></div>
+        <div class="grid2">
+          <label class="span2">
+            <span>Merge into</span>
+            <div class="inline">
+              <input id="tkDest" type="text" placeholder="folder" />
+              <button id="tkDestBrowse" class="btn small">choose…</button>
+            </div>
+          </label>
+          <label class="span2">
+            <span>If a file already exists in that folder</span>
+            <select id="tkOverwrite">
+              <option value="skip">Skip it (fastest; safe to re-run)</option>
+              <option value="overwrite">Overwrite it</option>
+              <option value="rename">Keep both (renames the new one)</option>
+            </select>
+          </label>
+        </div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="tkVerify" checked /> Check every download for damage before extracting anything <span class="muted">(finds a bad part now, not three hours in)</span></label>
+          <label class="check"><input type="checkbox" id="tkResume" checked /> Skip parts that were already extracted into this folder by an earlier run</label>
+          <label class="check"><input type="checkbox" id="tkFlatten" /> Remove the <span class="mono">Takeout/</span> wrapper so the services sit directly in the folder</label>
+          <label class="check"><input type="checkbox" id="tkJson" /> Move Google Photos JSON sidecars into <span class="mono">_json</span> folders <span class="muted">(leave off if you plan to run a metadata tool on the photos)</span></label>
+          <label class="check"><input type="checkbox" id="tkTrash" /> Move the downloaded parts to the Recycle Bin when the whole export succeeded</label>
+        </div>
+        <p id="tkSpace" class="muted"></p>
+        <div class="modal-actions">
+          <button id="tkCancel" class="btn ghost">Cancel</button>
+          <button id="tkOk" class="btn accent">Merge</button>
         </div>
       </div>
     </div>

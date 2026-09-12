@@ -414,6 +414,33 @@ input[type="password"] {
   cursor: pointer;
 }
 
+.tk-exports {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow: auto;
+}
+.tk-export {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 4px 10px;
+  align-items: center;
+  background: var(--bg3);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.tk-export .meta {
+  grid-column: 2 / -1;
+  color: var(--muted);
+  font-size: 12px;
+}
+.tk-export .gap {
+  color: var(--err);
+}
+
 .modal {
   position: fixed;
   inset: 0;

@@ -61,6 +61,7 @@ renderer/app.js --window.unpacker (preload, IPC invoke)--> main.js
                                                            ├─ engine/formats.js    detectArchive(), TARGETS, LEVELS, SPLIT_SIZES
                                                            ├─ engine/sevenzip.js   locate, spawn, progress parser, classify, parseList, add/extract/test/list
                                                            ├─ engine/rar.js        optional WinRAR creation (locate + add only)
+                                                           ├─ takeout.js           Takeout part grouping, flatten, sidecar tidy, resume state (pure-ish)
                                                            ├─ safety.js            traversal, bomb ratio, long paths, uniquePath, safeFileName
                                                            ├─ shell-integration.js HKCU context-menu verbs via reg.exe
                                                            ├─ store.js             settings.json in userData
@@ -86,7 +87,17 @@ extract:  7z l -slt → encrypted? → traversal/bomb guard → dest (smart/subf
 convert:  inspect → extract to <temp>/stage → 7z a from cwd=stage → verify
           → (optional) Recycle-Bin every volume of the source → done
 test:     7z t
+takeout:  parts (inputs, sorted) → skip parts recorded in <dest>/.unpacker-takeout.json
+          → [verifyFirst: 7z t every part, fail by NAME before writing anything]
+          → list every part, one free-space check for the whole export
+          → 7z x each part into the SAME dest, in order, -aos|-aoa|-aou, state file after each
+          → [flatten Takeout/] → [tidy Photos JSON] → [Recycle-Bin parts] → report, clear state
 ```
+
+Takeout parts are independent archives that share a `Takeout/` root, NOT a
+split set; `takeout.groupTakeout` groups them by the timestamp in the name.
+Dropping only Takeout parts in Auto mode opens the Takeout dialog
+(`addPaths` sends a `cli:request` of type `takeout`).
 
 Progress is mapped into a 0–100 job bar with `scale(ctx, from, to)`.
 
