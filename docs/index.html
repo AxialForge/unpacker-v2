@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{PROJECT_NAME}}</title>
+    <meta name="description" content="{{DESCRIPTION}}" />
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #171a21;
+        --fg: #e7e9ee;
+        --muted: #9aa3b2;
+        --accent: #3b74f0;
+        --border: #262b35;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #ffffff;
+          --panel: #f5f6f8;
+          --fg: #14171d;
+          --muted: #5a6472;
+          --accent: #1e50e5;
+          --border: #e0e3e9;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 4rem 1.25rem;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      main { max-width: 46rem; margin: 0 auto; }
+      h1 { font-size: clamp(2rem, 6vw, 3rem); margin: 0 0 0.5rem; letter-spacing: -0.02em; }
+      .tagline { color: var(--muted); font-size: 1.15rem; margin: 0 0 2.5rem; }
+      h2 { font-size: 1.15rem; margin: 2.5rem 0 0.75rem; }
+      .cta {
+        display: inline-block;
+        background: var(--accent);
+        color: #fff;
+        text-decoration: none;
+        font-weight: 600;
+        padding: 0.7rem 1.4rem;
+        border-radius: 8px;
+      }
+      .cta:hover { filter: brightness(1.1); }
+      .secondary { color: var(--muted); margin-left: 1rem; }
+      ul { padding-left: 1.2rem; }
+      li { margin: 0.4rem 0; }
+      pre {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+        overflow-x: auto;
+      }
+      footer {
+        margin-top: 4rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      a { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>{{PROJECT_NAME}}</h1>
+      <p class="tagline">{{TAGLINE}}</p>
+
+      <p>
+        <a class="cta" href="https://github.com/AxialForge/{{PROJECT_NAME}}/releases/latest">Download</a>
+        <a class="secondary" href="https://github.com/AxialForge/{{PROJECT_NAME}}">Source on GitHub</a>
+      </p>
+
+      <h2>What it does</h2>
+      <ul>
+        <li><!-- feature --></li>
+        <li><!-- feature --></li>
+      </ul>
+
+      <h2>Requirements</h2>
+      <ul>
+        <li><!-- runtime / OS --></li>
+      </ul>
+
+      <h2>Build it yourself</h2>
+      <pre><code>git clone https://github.com/AxialForge/{{PROJECT_NAME}}.git
+cd {{PROJECT_NAME}}
+# install + build</code></pre>
+
+      <footer>
+        MIT licensed &middot; built by
+        <a href="https://github.com/AxialForge">AxialForge</a>
+      </footer>
+    </main>
+  </body>
+</html>

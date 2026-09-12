@@ -1,0 +1,63 @@
+name: Build & Release (Windows)
+
+# Electron / Node desktop apps that ship a Windows .exe.
+# Move this file to .github/workflows/ to activate it.
+
+on:
+  push:
+    tags:
+      - "v*" # cut a release: git tag v0.3.0 && git push origin v0.3.0
+  workflow_dispatch: # or run manually from the Actions tab
+
+jobs:
+  build-win:
+    runs-on: windows-latest
+    permissions:
+      contents: write # create the release and upload the .exe
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Quality gate — build only runs if this passes.
+      - name: Run tests
+        run: npm test
+
+      - name: Build .exe
+        # --publish never: electron-builder only builds; the step below does the
+        # GitHub release (otherwise electron-builder demands GH_TOKEN).
+        run: npm run build:win -- --publish never
+        env:
+          # Optional code signing. Add these as repository secrets to sign the
+          # build; without them electron-builder produces an unsigned .exe.
+          #   CSC_LINK          base64 of your .pfx (or a path to it)
+          #   CSC_KEY_PASSWORD  the .pfx password
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      # Uploaded on every run, so manual workflow_dispatch runs are useful too.
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.repository.name }}-windows
+          path: dist/*.exe
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          # latest.yml and the .blockmap are what electron-updater reads to find
+          # and diff a new version. Ship ONLY the .exe and the app's auto-updater
+          # checks, finds no feed, and silently never updates. See
+          # templates/node-electron/INTEGRATION.md step 4.
+          files: |
+            dist/*.exe
+            dist/latest.yml
+            dist/*.blockmap
+          generate_release_notes: true
