@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
+    <title>Unpacker V2</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-theme="dark">
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">▣</span>
+        <span class="name">Unpacker V2</span>
+        <span class="engine" id="engineBadge" title="Engine">engine…</span>
+      </div>
+      <div class="topbar-actions">
+        <button id="btnClear" class="btn ghost" title="Remove finished jobs from the list">Clear finished</button>
+        <button id="btnSettings" class="btn ghost" title="Settings">⚙ Settings</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="left">
+        <div id="dropZone" class="dropzone" tabindex="0">
+          <div class="drop-inner">
+            <div class="drop-icon">⤓</div>
+            <div class="drop-title">Drop files, folders or archives here</div>
+            <div class="drop-sub">Archives get extracted. Anything else gets compressed.</div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="btnAddFiles" class="btn">Add files…</button>
+          <button id="btnAddFolder" class="btn">Add folder…</button>
+          <button id="btnOpenArchives" class="btn">Open archives…</button>
+          <button id="btnMassConvert" class="btn accent">Mass convert a folder…</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">What to do with dropped items</div>
+          <div class="seg" id="actionSeg" role="radiogroup">
+            <button data-action="auto" class="on" title="Archives extract, everything else compresses">Auto</button>
+            <button data-action="compress" title="Put everything dropped into a new archive">Compress</button>
+            <button data-action="extract" title="Extract each dropped archive">Extract</button>
+            <button data-action="convert" title="Repack each dropped archive as the format below">Convert</button>
+            <button data-action="test" title="Integrity-test each dropped archive">Test</button>
+          </div>
+
+          <div class="grid2">
+            <label>
+              <span>Format</span>
+              <select id="optFormat"></select>
+            </label>
+            <label>
+              <span>Compression</span>
+              <select id="optLevel"></select>
+            </label>
+            <label>
+              <span>Split into volumes</span>
+              <select id="optSplit"></select>
+            </label>
+            <label>
+              <span>Password (optional)</span>
+              <input id="optPassword" type="password" autocomplete="off" placeholder="none" />
+            </label>
+          </div>
+
+          <div class="checks">
+            <label class="check"><input type="checkbox" id="optOnePerItem" /> One archive per dropped item</label>
+            <label class="check"><input type="checkbox" id="optDeleteOriginal" /> After converting, move the original to the Recycle Bin (only after a passed verify)</label>
+          </div>
+
+          <div class="outrow">
+            <span>Output:</span>
+            <label class="check"><input type="radio" name="outMode" value="beside" checked /> next to the source</label>
+            <label class="check"><input type="radio" name="outMode" value="folder" /> in folder</label>
+            <button id="btnOutDir" class="btn small">choose…</button>
+            <span id="outDirLabel" class="muted mono"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="right">
+        <div class="queue-head">
+          <span>Queue</span>
+          <span id="queueStats" class="muted"></span>
+        </div>
+        <div id="queue" class="queue">
+          <div class="empty" id="queueEmpty">Nothing yet. Drop something on the left.</div>
+        </div>
+        <div id="notices" class="notices"></div>
+      </section>
+    </main>
+
+    <!-- password prompt -->
+    <div id="pwModal" class="modal" hidden>
+      <div class="modal-card">
+        <h3>Password needed</h3>
+        <p id="pwFor" class="muted mono"></p>
+        <input id="pwInput" type="password" autocomplete="off" placeholder="Archive password" />
+        <div class="modal-actions">
+          <button id="pwCancel" class="btn ghost">Skip</button>
+          <button id="pwOk" class="btn accent">Retry</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- mass convert / convert-from-explorer -->
+    <div id="convModal" class="modal" hidden>
+      <div class="modal-card wide">
+        <h3 id="convTitle">Convert archives</h3>
+        <p id="convSummary" class="muted"></p>
+        <div class="grid2">
+          <label>
+            <span>Convert to</span>
+            <select id="convFormat"></select>
+          </label>
+          <label>
+            <span>Compression</span>
+            <select id="convLevel"></select>
+          </label>
+          <label>
+            <span>Password for the NEW archives (optional)</span>
+            <input id="convPassword" type="password" autocomplete="off" placeholder="none" />
+          </label>
+          <label>
+            <span>Split into volumes</span>
+            <select id="convSplit"></select>
+          </label>
+        </div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="convSkipSame" checked /> Skip archives already in the target format</label>
+          <label class="check"><input type="checkbox" id="convDelete" /> Move originals to the Recycle Bin after a passed verify</label>
+        </div>
+        <div class="modal-actions">
+          <button id="convCancel" class="btn ghost">Cancel</button>
+          <button id="convOk" class="btn accent">Start</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- settings -->
+    <div id="setModal" class="modal" hidden>
+      <div class="modal-card wide">
+        <h3>Settings</h3>
+        <div class="grid2">
+          <label>
+            <span>Jobs at the same time</span>
+            <select id="setConcurrency">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </label>
+          <label>
+            <span>Extract into</span>
+            <select id="setExtractMode">
+              <option value="smart">Smart (new folder unless the archive already has one)</option>
+              <option value="subfolder">Always a new folder named after the archive</option>
+              <option value="here">Right where the archive is</option>
+            </select>
+          </label>
+          <label>
+            <span>If a file already exists</span>
+            <select id="setOverwrite">
+              <option value="rename">Keep both (rename the new one)</option>
+              <option value="overwrite">Overwrite</option>
+              <option value="skip">Skip</option>
+            </select>
+          </label>
+          <label>
+            <span>Theme</span>
+            <select id="setTheme">
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+            </select>
+          </label>
+          <label class="span2">
+            <span>Temporary folder for conversions (blank = system temp; pick a drive with room for the biggest archive you convert)</span>
+            <div class="inline">
+              <input id="setTempDir" type="text" placeholder="system temp" />
+              <button id="setTempBrowse" class="btn small">choose…</button>
+            </div>
+          </label>
+        </div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="setVerify" /> Test every archive after creating or converting it (recommended)</label>
+          <label class="check"><input type="checkbox" id="setHighRatio" /> Allow extreme compression ratios (turns off the zip-bomb refusal)</label>
+          <label class="check"><input type="checkbox" id="setContextMenu" /> Add "Add to archive / Extract here / Convert" to the Explorer right-click menu <span class="muted">(Windows 11: under "Show more options")</span></label>
+          <label class="check"><input type="checkbox" id="setAutoUpdate" /> Update automatically from GitHub Releases</label>
+        </div>
+        <p class="muted" id="aboutLine"></p>
+        <div class="modal-actions">
+          <button id="setClose" class="btn accent">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

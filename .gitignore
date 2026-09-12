@@ -54,3 +54,7 @@ logs/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Vendored 7-Zip engine is part of the source tree (CI needs it to build)
+!vendor/7zip/*.exe
+!vendor/7zip/*.dll

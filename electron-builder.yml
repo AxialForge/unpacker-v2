@@ -1,0 +1,39 @@
+appId: com.axialforge.unpackerv2
+productName: Unpacker V2
+copyright: Copyright © 2026 AxialForge
+
+directories:
+  output: dist
+  buildResources: assets
+
+files:
+  - src/**/*
+  - package.json
+
+# The 7-Zip engine must live OUTSIDE the asar so it can be spawned as a process.
+# It lands at <install>/resources/7zip/7z.exe; engine/sevenzip.js looks there first.
+extraResources:
+  - from: vendor/7zip
+    to: 7zip
+    filter:
+      - "**/*"
+
+publish:
+  provider: github
+  owner: AxialForge
+  repo: unpacker-v2
+
+win:
+  target:
+    - nsis
+  artifactName: ${name}-${version}-setup.${ext}
+
+nsis:
+  # One-click, per-user install: no wizard, no UAC, silent auto-update.
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Unpacker V2
+  artifactName: ${name}-${version}-setup.${ext}

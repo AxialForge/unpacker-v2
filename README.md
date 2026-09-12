@@ -1,44 +1,64 @@
-# {{PROJECT_NAME}}
+# Unpacker V2
 
-{{TAGLINE}}
+A drag-and-drop Windows archiver that stays out of your way: drop archives to
+extract them, drop anything else to compress it, or point it at a folder and
+convert every archive inside to one format. Built on the 7-Zip engine, so
+ZIP/ZIP64, 7z, tar, gzip, bzip2, xz, zstd, cab, iso, wim and RAR (extract)
+all just work, on files of any size.
 
-<!-- One sentence a stranger understands, then a paragraph on what it is and,
-     just as importantly, what it deliberately isn't. -->
+## What it does
 
-## Requirements
+- **Create** 7z, ZIP (ZIP64, AES-256), tar, tar.gz, tar.xz, tar.bz2 — and RAR
+  if you have WinRAR installed.
+- **Extract** everything 7-Zip reads, including RAR/RAR5, split volumes
+  (`.001`, `.part1.rar`, `.z01`), and encrypted archives (it asks for the
+  password instead of failing).
+- **Mass convert** — drop a stack of archives, or scan a whole folder, and
+  repack them all as 7z/ZIP/tar.*; verified before the original is touched.
+- **Test** archive integrity.
+- Password / AES encryption, split volumes (FAT32-safe 4 GB preset), verify
+  after every job, per-job cancel, a bounded parallel queue.
+- Optional Explorer right-click entries: *Add to archive*, *Extract here*,
+  *Extract to folder…*, *Convert archive…*.
 
-- <!-- runtime + version, e.g. Node 22+, Python 3.12, PlatformIO Core 6 -->
-- <!-- anything that must be installed separately, and what happens without it -->
+## What it deliberately won't do
+
+- **Create RAR without WinRAR.** Only rar.exe can write RAR and its licence
+  forbids bundling it. Extracting RAR needs nothing extra.
+- Extract an archive whose entries point outside the destination folder, or
+  one that looks like a zip bomb (>1000:1 and >1 GB), unless you turn that
+  guard off in Settings.
+- Delete anything with `unlink`. "Remove original" means the Recycle Bin, and
+  only after the new archive passed an integrity test.
+
+## Run from source
+
+Needs Node 22+ (Node 24 works; there are no native modules).
+
+```bash
+npm install
+npm run dev
+```
+
+The 7-Zip engine is expected at `vendor/7zip/7z.exe` + `7z.dll` (or an installed
+7-Zip in Program Files). Get it from <https://www.7-zip.org/download.html>:
+install 7-Zip, then copy `7z.exe`, `7z.dll` and `License.txt` from
+`C:\Program Files\7-Zip` into `vendor/7zip/`. 7-Zip is LGPL; the RAR
+decompression code inside it carries the unRAR restriction (it may not be used
+to build a RAR *compressor*), which this app respects.
+
+```bash
+npm test          # node --test, pure modules only
+npm run dist      # dist/unpacker-v2-<ver>-setup.exe
+```
 
 ## Install
 
-```bash
-# clone + install deps
-```
+Grab the latest `unpacker-v2-<version>-setup.exe` from Releases. One-click,
+per-user install (no admin), silent auto-update from GitHub Releases.
+The build is unsigned; SmartScreen will warn the first time.
 
-## Run
+## Licence
 
-```bash
-# the one command that starts the thing
-```
-
-## Build
-
-```bash
-# the one command that produces the shippable artifact
-```
-
-## Download
-
-Tagged releases publish a prebuilt artifact on the
-[Releases page](https://github.com/AxialForge/{{PROJECT_NAME}}/releases).
-
-## Development
-
-Architecture, the extension point, and the accumulated gotchas are in
-[CLAUDE.md](CLAUDE.md). Read it before changing anything structural — it exists
-so the same day isn't lost twice.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+MIT. Bundled 7-Zip is © Igor Pavlov, LGPL + unRAR restriction; see
+`vendor/7zip/License.txt`.
