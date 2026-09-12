@@ -126,6 +126,13 @@ Nothing else needs to change: the renderer reads `targets` from `app:info`.
   rejected.
 - **Windows 11 shows the entries under "Show more options".** The modern menu
   needs an MSIX-packaged extension; out of scope. HKCU keys, so no admin.
+- **A tar.gz extracted into a double-nested, lower-cased folder.** Two causes
+  that looked like one: `detectArchive` lower-cases the name for matching and
+  used to slice `baseName` from the lower-cased copy; and `7z l x.tar.gz` lists
+  the *gzip* layer (one `.tar` member), so the smart single-root check could
+  never see the real tree. Fix: `baseName` slices from the original name, and
+  `SevenZip.list({inner})` pipes `7z x -so | 7z l -slt -si -ttar` to list the
+  inner tar (`runPiped`). Don't "simplify" list() back to a single process.
 - **`.gitignore` ignores `*.exe`.** `vendor/7zip/*.exe|*.dll` are explicitly
   un-ignored at the bottom; don't move those lines above the `*.exe` rule.
 

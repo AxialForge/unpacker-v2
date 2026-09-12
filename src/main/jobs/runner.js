@@ -181,9 +181,9 @@ class Runner {
     await this.sevenZip.test(out, { signal: ctx.signal, onProgress: scale(ctx, from, to), password });
   }
 
-  async inspect(archive, options, ctx) {
+  async inspect(archive, options, ctx, inner) {
     ctx.stage("Reading archive");
-    const listing = await this.sevenZip.list(archive, { password: options.password, signal: ctx.signal });
+    const listing = await this.sevenZip.list(archive, { password: options.password, signal: ctx.signal, inner });
     if (listing.totals.encrypted && !options.password) {
       throw new EngineError({ kind: "password", message: "This archive is password-protected." }, "");
     }
@@ -245,7 +245,7 @@ class Runner {
     const archive = path.resolve(job.inputs[0]);
     if (!fs.existsSync(safety.longPath(archive))) throw new EngineError({ kind: "notfound", message: `Missing: ${archive}` }, "");
     const det = detectArchive(archive) || { type: "auto" };
-    const listing = await this.inspect(archive, job.options, ctx);
+    const listing = await this.inspect(archive, job.options, ctx, det.inner);
     const dest = this.extractDestFor(archive, listing, job.options);
     fs.mkdirSync(dest, { recursive: true });
     await this.ensureSpace(dest, listing.totals.size + 1024 * 1024, "extraction");
@@ -273,7 +273,7 @@ class Runner {
     if (!fs.existsSync(safety.longPath(archive))) throw new EngineError({ kind: "notfound", message: `Missing: ${archive}` }, "");
     const det = detectArchive(archive) || { type: "auto", baseName: path.basename(archive) };
     const target = this.targetFor(job.options.format || this.settings().convertTarget);
-    const listing = await this.inspect(archive, job.options, ctx);
+    const listing = await this.inspect(archive, job.options, ctx, det.inner);
 
     const tempDir = this.tempDirFor(job);
     const stage = path.join(tempDir, "stage");

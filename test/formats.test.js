@@ -10,6 +10,9 @@ test("plain archives detect by extension", () => {
   assert.equal(detectArchive("a.iso").type, "iso");
   assert.equal(detectArchive("a.zip").baseName, "a");
   assert.equal(detectArchive("my.backup.tar").baseName, "my.backup");
+  assert.equal(detectArchive("Photos Ärger.ZIP").baseName, "Photos Ärger", "baseName keeps the original case");
+  assert.equal(detectArchive("Site.TAR.GZ").baseName, "Site");
+  assert.equal(detectArchive("Big.7z.001").baseName, "Big");
 });
 
 test("compound tar formats win over the bare stream extension", () => {

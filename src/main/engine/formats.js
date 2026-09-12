@@ -85,7 +85,8 @@ const CONTINUATION = [
  * @returns {{ type:string, inner?:string, ext:string, entryPoint:boolean, split:boolean, baseName:string } | null}
  */
 function detectArchive(filePath) {
-  const name = path.basename(String(filePath || "")).toLowerCase();
+  const orig = path.basename(String(filePath || ""));
+  const name = orig.toLowerCase(); // match case-insensitively, but slice baseName from `orig`
   if (!name) return null;
 
   for (const rx of CONTINUATION) {
@@ -94,7 +95,7 @@ function detectArchive(filePath) {
 
   for (const [suffix, { outer, inner }] of Object.entries(COMPOUND)) {
     if (name.endsWith(suffix) && name.length > suffix.length) {
-      return { type: outer, inner, ext: suffix, entryPoint: true, split: false, baseName: name.slice(0, -suffix.length) };
+      return { type: outer, inner, ext: suffix, entryPoint: true, split: false, baseName: orig.slice(0, -suffix.length) };
     }
   }
 
@@ -103,7 +104,7 @@ function detectArchive(filePath) {
 
   if (ext === ".001") {
     // "archive.7z.001" -> the real type is whatever precedes .001
-    const innerName = name.slice(0, -4);
+    const innerName = orig.slice(0, -4);
     const innerDet = detectArchive(innerName);
     return {
       type: innerDet ? innerDet.type : "auto",
@@ -120,7 +121,7 @@ function detectArchive(filePath) {
 
   const type = SINGLE[ext];
   if (!type) return null;
-  return { type, ext, entryPoint: true, split: false, baseName: name.slice(0, -ext.length) };
+  return { type, ext, entryPoint: true, split: false, baseName: orig.slice(0, -ext.length) };
 }
 
 /** True when the path looks like an archive we can open (an entry point or a continuation volume). */

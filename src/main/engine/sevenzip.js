@@ -291,6 +291,45 @@ function run(exe, args, o = {}) {
   });
 }
 
+/**
+ * Two 7-Zip processes piped together: `7z x <archive> -so | 7z <consumerArgs> -si`.
+ * Used to look INSIDE a compound archive (tar.gz -> tar) without a temp file.
+ * -so disables the producer's stdout messages by itself; its errors go to stderr.
+ */
+function runPiped(exe, archive, consumerArgs, o = {}) {
+  return new Promise((resolve, reject) => {
+    const producer = spawn(exe, ["x", archive, "-so", "-y", passwordArg(o.password), "-bsp0", "-bso0"], { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+    const consumer = spawn(exe, [...consumerArgs, "-si", "-y", "-sccUTF-8"], { windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
+    let output = "";
+    let perr = "";
+    const cap = (s) => (output.length > 4 * 1024 * 1024 ? output.slice(-1024 * 1024) : output + s);
+    consumer.stdout.on("data", (b) => (output = cap(b.toString("utf8"))));
+    consumer.stderr.on("data", (b) => (output = cap(b.toString("utf8"))));
+    producer.stderr.on("data", (b) => (perr += b.toString("utf8")));
+    producer.stdout.on("error", () => {}); // EPIPE when the consumer closes early
+    consumer.stdin.on("error", () => {});
+    producer.stdout.pipe(consumer.stdin);
+    const abort = () => {
+      try { producer.kill(); } catch { /* gone */ }
+      try { consumer.kill(); } catch { /* gone */ }
+    };
+    if (o.signal) o.signal.addEventListener("abort", abort, { once: true });
+    let pcode = null;
+    let done = 0;
+    const finish = (ccode) => {
+      if (o.signal) o.signal.removeEventListener("abort", abort);
+      // A producer failure (wrong password, damaged outer stream) is the real error.
+      if (pcode !== 0 && pcode != null) resolve({ code: pcode, output: `${perr}\n${output}` });
+      else resolve({ code: ccode, output: `${output}\n${perr}` });
+    };
+    let ccode = null;
+    producer.on("error", reject);
+    consumer.on("error", reject);
+    producer.on("close", (c) => { pcode = c; done += 1; if (done === 2) finish(ccode); });
+    consumer.on("close", (c) => { ccode = c; done += 1; if (done === 2) finish(ccode); });
+  });
+}
+
 // ── high-level engine ────────────────────────────────────────────
 
 class SevenZip {
@@ -307,7 +346,11 @@ class SevenZip {
 
   /** @returns {Promise<{archive, entries, totals, physicalSize}>} throws EngineError */
   async list(archive, o = {}) {
-    const res = await run(this.exe, listArgs(archive, o), { signal: o.signal });
+    // Compound (tar.gz): list the inner tar through a pipe so entries, sizes
+    // and the single-root check reflect the real files, not the one .tar member.
+    const res = o.inner
+      ? await runPiped(this.exe, archive, ["l", "-slt", `-t${o.inner}`], { password: o.password, signal: o.signal })
+      : await run(this.exe, listArgs(archive, o), { signal: o.signal });
     const cls = classify(res.code, res.output);
     if (cls.kind !== "ok" && cls.kind !== "warning") throw new EngineError(cls, res.output);
     const parsed = parseList(res.output);
@@ -398,6 +441,7 @@ module.exports = {
   locate,
   candidates,
   run,
+  runPiped,
   createProgressParser,
   classify,
   parseList,
