@@ -222,6 +222,8 @@ function addArgs(out, listFile, o = {}) {
     if (o.type === "zip") args.push("-mem=AES256");
   }
   if (o.split) args.push(`-v${o.split}`);
+  // Solid block cap for 7z: limits how much one damaged block can take with it.
+  if (o.solid && o.type === "7z" && o.level !== 0) args.push(`-ms=${o.solid}`);
   if (o.type === "7z" || o.type === "zip" || o.type === "tar") args.push("-snl"); // store symlinks as links, don't follow
   args.push("-ssw"); // include files that are open for writing (logs, etc.)
   args.push(out, `@${listFile}`);

@@ -414,6 +414,28 @@ input[type="password"] {
   cursor: pointer;
 }
 
+.pk-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.pk-summary b {
+  color: var(--text);
+}
+.pk-suggest {
+  background: var(--drop);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.pk-suggest .head {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
 .tk-exports {
   display: flex;
   flex-direction: column;

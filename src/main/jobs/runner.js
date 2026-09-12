@@ -13,6 +13,9 @@ const { EngineError, singleRoot } = require("../engine/sevenzip");
 const rarEngine = require("../engine/rar");
 const safety = require("../safety");
 const takeout = require("../takeout");
+const analyze = require("../analyze");
+const chunker = require("../chunker");
+const manifestLib = require("../manifest");
 
 const MAX_WALK_ENTRIES = 250000; // stop estimating input size beyond this; the job still runs
 
@@ -43,6 +46,10 @@ class Runner {
         return this.test(job, ctx);
       case "takeout":
         return this.takeout(job, ctx);
+      case "pack":
+        return this.pack(job, ctx);
+      case "verify-manifest":
+        return this.verifyManifest(job, ctx);
       default:
         throw new Error(`Unknown job kind: ${job.kind}`);
     }
@@ -162,6 +169,7 @@ class Runner {
         password: target.encrypt ? options.password || undefined : undefined,
         headerEncrypt: target.headerEncrypt,
         split: target.split ? options.split || undefined : undefined,
+        solid: options.solidCap || undefined,
         cwd,
         tempDir,
         signal: ctx.signal,
@@ -437,6 +445,209 @@ class Runner {
     fs.writeFileSync(path.join(dest, "Takeout-import-report.txt"), `Unpacker V2 - Google Takeout import\n${new Date().toISOString()}\n\n${report.join("\n")}\n`);
     ctx.progress({ percent: 100 });
     return { output: dest };
+  }
+
+  /**
+   * Smart compress: enumerate → plan chunks → (hash) → manifest → one archive
+   * per chunk → verify. options:
+   *   { format, level, solidCap, password, name, outputMode, outputDir,
+   *     chunkMode:"chunks"|"volumes"|"none", chunkSize:id, manifest:bool, hash:bool }
+   * Chunks are independent archives packed under the limit; a single file
+   * bigger than the limit becomes its own volume set (the only way to cut it).
+   */
+  async pack(job, ctx) {
+    const o = job.options;
+    const target = this.targetFor(o.format || this.settings().format);
+    const tempDir = this.tempDirFor(job);
+    try {
+      ctx.stage("Listing files");
+      const { root, files } = await analyze.enumerate(job.inputs, { signal: ctx.signal });
+      if (!files.length) throw new EngineError({ kind: "notfound", message: "Nothing to pack: no files found." }, "");
+      const totalBytes = files.reduce((n, f) => n + f.size, 0) || 1;
+      const limit = chunker.chunkBytes(o.chunkSize);
+      const mode = !limit ? "none" : o.chunkMode || "chunks";
+      const splitArg = limit ? `${Math.floor(limit / 1024 ** 2)}m` : undefined;
+
+      // ── plan ──
+      let plan;
+      if (mode === "chunks") {
+        if (!root) throw new EngineError({ kind: "fatal", message: "Independent chunks need all inputs on one drive. Use volumes, or pack each drive separately." }, "");
+        const p = chunker.planChunks(files, limit);
+        plan = p.chunks.map((c) => ({ files: c.files, bytes: c.bytes, volumes: false }));
+        for (const f of p.oversized) plan.push({ files: [f], bytes: f.size, volumes: true });
+        if (p.oversized.length) ctx.warn(`${p.oversized.length} file(s) larger than the chunk limit were packed as volume sets (all parts needed to open them).`);
+      } else {
+        plan = [{ files, bytes: totalBytes, volumes: mode === "volumes" }];
+      }
+      const count = plan.length;
+      plan.forEach((c, i) => {
+        c.label = chunker.chunkLabel(i + 1, count);
+      });
+
+      // ── names ──
+      const outDir = this.outputDirFor(job, job.inputs[0]);
+      fs.mkdirSync(outDir, { recursive: true });
+      const stem = safety.safeFileName(o.name || this.archiveStem(job.inputs.map((p) => path.resolve(p))));
+      const id = o.manifest ? manifestLib.makeId() : null;
+      const base = id ? `${stem}_${id}` : stem;
+      const exists = (p) => fs.existsSync(p) || fs.existsSync(`${p}.001`);
+      const nameFor = (c) => safety.uniquePath(path.join(outDir, `${base}${count > 1 ? `-${c.label}` : ""}${target.ext}`), exists, { ext: target.ext });
+      for (const c of plan) c.out = nameFor(c);
+
+      // ── space ──
+      await this.ensureSpace(outDir, Math.ceil(totalBytes * 1.02) + 16 * 1024 * 1024, "the new archives");
+
+      // ── hashes (optional, reads everything once more) ──
+      let done = 0;
+      if (o.manifest && o.hash) {
+        ctx.stage("Hashing files (SHA-256)");
+        for (const f of files) {
+          f.sha256 = await manifestLib.hashFile(f.path, { signal: ctx.signal });
+          done += f.size;
+          ctx.progress({ percent: (done / totalBytes) * 25, file: f.rel });
+        }
+      }
+      const from0 = o.manifest && o.hash ? 25 : 0;
+
+      // ── manifest (written before packing so it can ride inside every archive) ──
+      let manifestPath = null;
+      let manifestOut = null;
+      if (o.manifest) {
+        for (const c of plan) for (const f of c.files) f.chunk = c.label;
+        const text = manifestLib.renderManifest({
+          id,
+          name: stem,
+          created: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+          tool: `Unpacker V2 ${o.appVersion || ""}`.trim(),
+          format: target.id,
+          chunkLimit: o.chunkSize ? `${o.chunkSize} (${mode})` : "none",
+          chunks: plan.map((c) => ({ label: c.label, file: path.basename(c.volumes ? `${c.out}.001` : c.out), bytes: c.bytes, volumes: c.volumes })),
+          files: files.slice().sort((a, b) => a.chunk.localeCompare(b.chunk) || a.rel.localeCompare(b.rel)),
+          hashed: !!o.hash,
+        });
+        manifestPath = path.join(tempDir, `${base}.manifest.txt`);
+        fs.writeFileSync(manifestPath, text, "utf8");
+        manifestOut = safety.uniquePath(path.join(outDir, `${base}.manifest.txt`), (p) => fs.existsSync(p));
+      }
+
+      // ── pack ──
+      const verifyOn = this.settings().verify;
+      const packTo = verifyOn ? 88 : 100;
+      let acc = 0;
+      const outputs = [];
+      for (const c of plan) {
+        ctx.stage(count > 1 ? `Packing ${c.label} (${c.files.length} files, ${safety.fmtBytes(c.bytes)})` : `Compressing to ${target.id}`);
+        const inputs = c.files.map((f) => (root ? path.relative(root, f.path) : f.path));
+        if (manifestPath) inputs.push(manifestPath); // absolute: stored at the archive root
+        const produced = await this.createArchive({
+          out: c.out,
+          inputs,
+          cwd: root || undefined,
+          target,
+          options: { ...o, split: c.volumes ? splitArg : undefined },
+          tempDir,
+          ctx,
+          from: from0 + ((acc / totalBytes) * (packTo - from0)),
+          to: from0 + (((acc + c.bytes) / totalBytes) * (packTo - from0)),
+        });
+        outputs.push(produced);
+        acc += c.bytes;
+      }
+
+      // ── verify ──
+      if (verifyOn) {
+        let vacc = 0;
+        for (let i = 0; i < plan.length; i += 1) {
+          ctx.stage(count > 1 ? `Verifying ${plan[i].label}` : "Verifying");
+          await this.sevenZip.test(outputs[i], { signal: ctx.signal, password: o.password, onProgress: scale(ctx, packTo + ((vacc / totalBytes) * 12), packTo + (((vacc + plan[i].bytes) / totalBytes) * 12)) });
+          vacc += plan[i].bytes;
+        }
+      }
+      if (manifestPath) fs.copyFileSync(manifestPath, manifestOut);
+      return { output: manifestOut || outputs[0] };
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  }
+
+  /**
+   * Check an archive set against its manifest: every archive present and
+   * passing `7z t`; with `deep` (default when hashes exist) each archive is
+   * extracted to temp and every file's SHA-256 compared. Writes a report next
+   * to the manifest and fails with a summary if anything is off.
+   */
+  async verifyManifest(job, ctx) {
+    const mpath = path.resolve(job.inputs[0]);
+    const dir = path.dirname(mpath);
+    const m = manifestLib.parseManifest(fs.readFileSync(mpath, "utf8"));
+    if (!m.id || !m.chunks.length) throw new EngineError({ kind: "unsupported", message: "That doesn't look like an Unpacker V2 manifest." }, "");
+    const deep = job.options.deep == null ? m.hashed : !!job.options.deep && m.hashed;
+    const issues = [];
+    const lines = [`Unpacker V2 - manifest verification`, `manifest: ${mpath}`, `id: ${m.id}`, `checked: ${new Date().toISOString()}`, `mode: ${deep ? "archive test + SHA-256 of every file" : "archive test only"}`, ""];
+    const total = m.chunks.reduce((n, c) => n + c.bytes, 0) || 1;
+    let acc = 0;
+    const tempDir = deep ? this.tempDirFor(job) : null;
+    try {
+      for (const c of m.chunks) {
+        const file = path.join(dir, c.file);
+        const from = (acc / total) * 100;
+        const to = ((acc + c.bytes) / total) * 100;
+        acc += c.bytes;
+        if (!fs.existsSync(file)) {
+          issues.push(`MISSING  ${c.label}  ${c.file}`);
+          lines.push(`MISSING  ${c.label}  ${c.file}`);
+          continue;
+        }
+        ctx.stage(`Testing ${c.label}`);
+        try {
+          await this.sevenZip.test(file, { signal: ctx.signal, password: job.options.password, onProgress: scale(ctx, from, deep ? from + (to - from) * 0.4 : to) });
+        } catch (err) {
+          if (err.kind === "password") throw err;
+          issues.push(`DAMAGED  ${c.label}  ${c.file}: ${err.message}`);
+          lines.push(`DAMAGED  ${c.label}  ${c.file}: ${err.message}`);
+          continue;
+        }
+        if (!deep) {
+          lines.push(`OK       ${c.label}  ${c.file}`);
+          continue;
+        }
+        ctx.stage(`Checking hashes in ${c.label}`);
+        const stage = path.join(tempDir, c.label);
+        fs.mkdirSync(stage, { recursive: true });
+        await this.ensureSpace(tempDir, c.bytes + 16 * 1024 * 1024, "hash verification");
+        try {
+          await this.sevenZip.extract(file, stage, { password: job.options.password, overwrite: "overwrite", signal: ctx.signal, onProgress: scale(ctx, from + (to - from) * 0.4, from + (to - from) * 0.8) });
+          const mine = m.files.filter((f) => f.chunk === c.label);
+          let bad = 0;
+          for (const f of mine) {
+            const p = path.join(stage, ...f.rel.split("/"));
+            if (!fs.existsSync(p)) {
+              issues.push(`MISSING  ${c.label}  ${f.rel}`);
+              bad += 1;
+              continue;
+            }
+            const h = await manifestLib.hashFile(p, { signal: ctx.signal });
+            if (f.sha256 && h !== f.sha256) {
+              issues.push(`CHANGED  ${c.label}  ${f.rel}`);
+              bad += 1;
+            }
+          }
+          lines.push(`${bad ? "BAD" : "OK"}      ${c.label}  ${c.file}: ${mine.length - bad}/${mine.length} files match`);
+        } finally {
+          fs.rmSync(stage, { recursive: true, force: true });
+        }
+        ctx.progress({ percent: to });
+      }
+    } finally {
+      if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    lines.push("", issues.length ? `${issues.length} problem(s):` : "Everything matches the manifest.", ...issues);
+    const report = `${mpath.replace(/\.manifest\.txt$/i, "")}.verify.txt`;
+    fs.writeFileSync(report, `${lines.join("\n")}\n`, "utf8");
+    if (issues.length) {
+      throw new EngineError({ kind: "corrupt", message: `${issues.length} problem(s), see ${path.basename(report)}: ${issues.slice(0, 3).join("; ")}${issues.length > 3 ? "; …" : ""}` }, "");
+    }
+    return { output: report };
   }
 
   async test(job, ctx) {

@@ -14,6 +14,8 @@ const { JobQueue } = require("./jobs/queue");
 const { Runner } = require("./jobs/runner");
 const shellIntegration = require("./shell-integration");
 const takeout = require("./takeout");
+const analyze = require("./analyze");
+const chunker = require("./chunker");
 const updater = require("./updater");
 
 const DEV = process.argv.includes("--dev");
@@ -265,6 +267,22 @@ function registerIpc() {
     const sizes = new Map();
     for (const f of files) sizes.set(f, (await fsp.stat(f)).size);
     return takeout.groupTakeout(files, (f) => sizes.get(f) || 0);
+  });
+  // Smart compress: analyze dropped inputs, then queue a pack job with the chosen plan.
+  ipcMain.handle("pack:analyze", async (_e, { paths, password }) => {
+    const a = await analyze.analyze((paths || []).map((p) => path.resolve(String(p))), { password: !!password, maxEntries: 500000 });
+    return { ...a, chunkSizes: chunker.CHUNK_SIZES };
+  });
+  ipcMain.handle("pack:start", (_e, { paths, options }) => {
+    const inputs = (paths || []).map((p) => path.resolve(String(p)));
+    if (!inputs.length) return { added: [] };
+    const label = inputs.length === 1 ? path.basename(inputs[0]) : `${inputs.length} items from ${path.basename(path.dirname(inputs[0])) || inputs[0]}`;
+    return { added: [queue.add({ kind: "pack", label, inputs, options: { ...options, appVersion: app.getVersion() } })] };
+  });
+  ipcMain.handle("verify:manifest", async () => {
+    const r = await dialog.showOpenDialog(mainWindow, { title: "Choose a manifest", properties: ["openFile", "multiSelections"], filters: [{ name: "Unpacker manifests", extensions: ["txt"] }] });
+    if (r.canceled) return { added: [] };
+    return { added: r.filePaths.map((p) => queue.add({ kind: "verify-manifest", label: path.basename(p), inputs: [p], options: {} })) };
   });
   ipcMain.handle("takeout:defaultDest", (_e, partPath) => path.join(path.dirname(path.resolve(partPath)), "Takeout-merged"));
   ipcMain.handle("takeout:start", (_e, { exports = [], options = {} }) => {

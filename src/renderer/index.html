@@ -35,6 +35,7 @@
           <button id="btnOpenArchives" class="btn">Open archives…</button>
           <button id="btnMassConvert" class="btn accent">Mass convert a folder…</button>
           <button id="btnTakeout" class="btn accent" title="Merge a Google Takeout export (all its numbered parts) into one folder">Google Takeout…</button>
+          <button id="btnVerifyManifest" class="btn" title="Check an archive set against its .manifest.txt">Verify a manifest…</button>
         </div>
 
         <div class="panel">
@@ -67,6 +68,7 @@
           </div>
 
           <div class="checks">
+            <label class="check"><input type="checkbox" id="optSmart" checked /> Smart compress: analyze what was dropped and suggest a format, size limit and manifest before packing</label>
             <label class="check"><input type="checkbox" id="optOnePerItem" /> One archive per dropped item</label>
             <label class="check"><input type="checkbox" id="optDeleteOriginal" /> After converting, move the original to the Recycle Bin (only after a passed verify)</label>
           </div>
@@ -136,6 +138,58 @@
         <div class="modal-actions">
           <button id="convCancel" class="btn ghost">Cancel</button>
           <button id="convOk" class="btn accent">Start</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- smart compress -->
+    <div id="pkModal" class="modal" hidden>
+      <div class="modal-card wide">
+        <h3 id="pkTitle">Smart compress</h3>
+        <div id="pkSummary" class="pk-summary"></div>
+        <div class="pk-suggest" id="pkSuggest"></div>
+        <div class="seg" id="pkPreset">
+          <button data-preset="everyday" class="on" title="Use the suggestion, no manifest">Everyday</button>
+          <button data-preset="archival" title="Suggestion + manifest with SHA-256 + verify">Archival</button>
+          <button data-preset="custom" title="Set everything yourself">Custom</button>
+        </div>
+        <div class="grid2">
+          <label>
+            <span>Format</span>
+            <select id="pkFormat"></select>
+          </label>
+          <label>
+            <span>Compression</span>
+            <select id="pkLevel"></select>
+          </label>
+          <label>
+            <span>Size limit per archive</span>
+            <select id="pkChunk"></select>
+          </label>
+          <label>
+            <span>How to apply the limit</span>
+            <select id="pkMode">
+              <option value="chunks">Independent archives (each opens on its own)</option>
+              <option value="volumes">Volumes of one archive (all parts needed)</option>
+            </select>
+          </label>
+          <label>
+            <span>Archive name</span>
+            <input id="pkName" type="text" />
+          </label>
+          <label>
+            <span>Password (optional)</span>
+            <input id="pkPassword" type="password" autocomplete="off" placeholder="none" />
+          </label>
+        </div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="pkManifest" /> Write a manifest: a text file listing every file, its size, date and which archive holds it. Archives and manifest share an 8-character ID in their names, and a copy rides inside each archive.</label>
+          <label class="check" id="pkHashRow"><input type="checkbox" id="pkHash" /> Include SHA-256 of every file in the manifest <span class="muted">(reads everything once more; lets "Verify a manifest" prove the files are intact years later)</span></label>
+        </div>
+        <p id="pkNote" class="muted"></p>
+        <div class="modal-actions">
+          <button id="pkCancel" class="btn ghost">Cancel</button>
+          <button id="pkOk" class="btn accent">Pack</button>
         </div>
       </div>
     </div>

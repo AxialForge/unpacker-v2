@@ -25,6 +25,11 @@ contextBridge.exposeInMainWorld("unpacker", {
     onChange: (cb) => on("jobs:change", cb),
     onRemoved: (cb) => on("jobs:removed", cb),
   },
+  pack: {
+    analyze: (paths, password) => ipcRenderer.invoke("pack:analyze", { paths, password }),
+    start: (paths, options) => ipcRenderer.invoke("pack:start", { paths, options }),
+    verifyManifest: () => ipcRenderer.invoke("verify:manifest"),
+  },
   takeout: {
     // scan(paths|folders) -> exports grouped by timestamp with sizes and gaps
     scan: (paths) => ipcRenderer.invoke("takeout:scan", paths),

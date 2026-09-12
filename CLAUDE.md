@@ -62,6 +62,9 @@ renderer/app.js --window.unpacker (preload, IPC invoke)--> main.js
                                                            ├─ engine/sevenzip.js   locate, spawn, progress parser, classify, parseList, add/extract/test/list
                                                            ├─ engine/rar.js        optional WinRAR creation (locate + add only)
                                                            ├─ takeout.js           Takeout part grouping, flatten, sidecar tidy, resume state (pure-ish)
+                                                           ├─ analyze.js           enumerate inputs, classify by bucket, deflate probe, suggest()
+                                                           ├─ chunker.js           bin-pack files under a size limit (deepest folders that fit stay whole)
+                                                           ├─ manifest.js          8-char ID, render/parse manifest, streaming SHA-256
                                                            ├─ safety.js            traversal, bomb ratio, long paths, uniquePath, safeFileName
                                                            ├─ shell-integration.js HKCU context-menu verbs via reg.exe
                                                            ├─ store.js             settings.json in userData
@@ -92,7 +95,18 @@ takeout:  parts (inputs, sorted) → skip parts recorded in <dest>/.unpacker-tak
           → list every part, one free-space check for the whole export
           → 7z x each part into the SAME dest, in order, -aos|-aoa|-aou, state file after each
           → [flatten Takeout/] → [tidy Photos JSON] → [Recycle-Bin parts] → report, clear state
+pack:     enumerate (rel to common root) → plan: none | chunks (planChunks, oversized→volumes) | volumes
+          → [hash every file] → render manifest to temp → per chunk: 7z a with cwd=root,
+          relative paths + the manifest's ABSOLUTE path (lands at archive root) → verify each
+          → copy manifest beside the archives. Names: <stem>_<ID>-NNofMM.<ext>, <stem>_<ID>.manifest.txt
+verify-manifest: per chunk: exists → 7z t → [deep: extract to temp, SHA-256 every listed file]
+          → <stem>_<ID>.verify.txt; fails with a MISSING/DAMAGED/CHANGED summary
 ```
+
+Chunks are packed by RAW size with a 0.5% margin; the deepest folder that
+fits under the cap travels as one unit (`chunker.planChunks`). Don't group by
+the first path segment: for a single dropped folder that segment IS the
+folder, and everything gets split file by file (this bit once).
 
 Takeout parts are independent archives that share a `Takeout/` root, NOT a
 split set; `takeout.groupTakeout` groups them by the timestamp in the name.

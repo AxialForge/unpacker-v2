@@ -97,6 +97,10 @@ function currentOptions() {
 
 async function submitPaths(paths, act = action, options = currentOptions()) {
   if (!paths.length) return;
+  // Smart compress intercepts plain "compress these" drops with an analysis step.
+  if ($("optSmart").checked && (act === "compress" || (act === "auto" && !paths.some(looksLikeArchive)))) {
+    return openPackModal(paths);
+  }
   const res = await api.jobs.addPaths({ paths, action: act, options });
   for (const s of res.skipped) notice(`Skipped ${basename(s.path)}: ${s.reason}`, "warn");
   if (!res.added.length && !res.skipped.length) notice("Nothing to do.", "warn");
@@ -156,6 +160,23 @@ function wireUi() {
     const [d] = await api.dialog.chooseFolder("Merge the export into which folder?");
     if (d) $("tkDest").value = d;
   });
+  $("btnVerifyManifest").addEventListener("click", async () => {
+    const r = await api.pack.verifyManifest();
+    if (r.added.length) notice(`Verifying ${r.added.length} manifest${r.added.length === 1 ? "" : "s"}. A .verify.txt report lands next to each.`, "ok");
+  });
+  $("pkPreset").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-preset]");
+    if (b) applyPreset(b.dataset.preset);
+  });
+  for (const id of ["pkFormat", "pkLevel", "pkChunk", "pkMode", "pkManifest", "pkHash"]) {
+    $(id).addEventListener("change", () => {
+      if (pkPreset !== "custom") applyPreset("custom");
+      else syncPackNote();
+    });
+  }
+  $("pkPassword").addEventListener("input", syncPackNote);
+  $("pkCancel").addEventListener("click", () => ($("pkModal").hidden = true));
+  $("pkOk").addEventListener("click", startPack);
   $("btnClear").addEventListener("click", () => api.jobs.clearFinished());
 
   // persist the panel choices as defaults
@@ -270,6 +291,124 @@ async function startConvert() {
     outputMode: document.querySelector("input[name=outMode]:checked").value,
     outputDir: settings.outputDir,
   });
+}
+
+// ── smart compress ──────────────────────────────────────────────
+
+const ARCHIVE_RX = /\.(zip|zipx|7z|rar|tar|gz|tgz|bz2|tbz2?|xz|txz|zst|tzst|lz|lzma|cab|iso|wim|arj|lzh|cpio|rpm|deb|dmg|vhdx?|001|r\d\d|z\d\d)$/i;
+const looksLikeArchive = (p) => ARCHIVE_RX.test(String(p));
+
+let pkPaths = [];
+let pkInfo = null;
+let pkPreset = "everyday";
+
+async function openPackModal(paths) {
+  pkPaths = paths;
+  pkInfo = null;
+  $("pkTitle").textContent = "Smart compress";
+  $("pkSummary").innerHTML = "<span>Analyzing…</span>";
+  $("pkSuggest").textContent = "Reading the files and testing how well a sample compresses…";
+  $("pkOk").disabled = true;
+  fillSelect($("pkFormat"), info.targets, (t) => [t.id, t.label]);
+  fillSelect($("pkLevel"), info.levels, (l) => [l.id, l.label]);
+  $("pkName").value = paths.length === 1 ? basename(paths[0]).replace(/\.[^.]+$/, (m) => (looksLikeArchive(paths[0]) ? "" : m)) : basename(dirname(paths[0])) || "Archive";
+  $("pkPassword").value = $("optPassword").value;
+  $("pkModal").hidden = false;
+  try {
+    pkInfo = await api.pack.analyze(paths, $("pkPassword").value);
+  } catch (err) {
+    $("pkSuggest").textContent = `Analysis failed: ${err.message}`;
+    return;
+  }
+  fillSelect($("pkChunk"), pkInfo.chunkSizes, (c) => [c.id, c.label]);
+  const b = pkInfo.bytes;
+  const pct = (n) => (pkInfo.total ? Math.round((n / pkInfo.total) * 100) : 0);
+  $("pkSummary").innerHTML = "";
+  for (const [label, val] of [
+    ["files", pkInfo.files.toLocaleString()],
+    ["total", fmtBytes(pkInfo.total)],
+    ["media", `${pct(b.media)}%`],
+    ["documents/text", `${pct(b.text + b.office)}%`],
+    ["already packed", `${pct(b.packed)}%`],
+    ["sample compressed to", `${Math.round(pkInfo.probeRatio * 100)}%`],
+  ]) {
+    const s = document.createElement("span");
+    s.innerHTML = `${label} <b></b>`;
+    s.querySelector("b").textContent = val;
+    $("pkSummary").appendChild(s);
+  }
+  const sg = pkInfo.suggestion;
+  const fmt = info.targets.find((t) => t.id === sg.format);
+  $("pkSuggest").innerHTML = "";
+  const head = document.createElement("div");
+  head.className = "head";
+  head.textContent = `Suggested: ${fmt ? fmt.label : sg.format}, ${info.levels.find((l) => l.id === sg.level)?.label || sg.level}${sg.estSavedPct > 3 ? ` — about ${sg.estSavedPct}% smaller` : " — little to gain from compression"}`;
+  const why = document.createElement("div");
+  why.textContent = sg.reason;
+  $("pkSuggest").append(head, why);
+  applyPreset(pkPreset);
+  $("pkOk").disabled = false;
+}
+
+function applyPreset(p) {
+  pkPreset = p;
+  for (const x of $("pkPreset").children) x.classList.toggle("on", x.dataset.preset === p);
+  if (!pkInfo) return;
+  const sg = pkInfo.suggestion;
+  const custom = p === "custom";
+  if (!custom) {
+    $("pkFormat").value = sg.format;
+    $("pkLevel").value = String(sg.level);
+    $("pkMode").value = "chunks";
+  }
+  if (p === "everyday") {
+    $("pkChunk").value = "";
+    $("pkManifest").checked = false;
+    $("pkHash").checked = false;
+  } else if (p === "archival") {
+    if (!$("pkChunk").value) $("pkChunk").value = pkInfo.total > 4000 * 1024 ** 2 ? "4g" : "";
+    $("pkManifest").checked = true;
+    $("pkHash").checked = true;
+  }
+  syncPackNote();
+}
+
+function syncPackNote() {
+  const hasChunk = !!$("pkChunk").value;
+  $("pkMode").disabled = !hasChunk;
+  $("pkHashRow").style.opacity = $("pkManifest").checked ? "1" : "0.5";
+  $("pkHash").disabled = !$("pkManifest").checked;
+  const notes = [];
+  if (hasChunk && $("pkMode").value === "chunks") notes.push("Files are grouped so each archive stays under the limit; folders are kept together when they fit. A single file bigger than the limit becomes its own volume set.");
+  if (hasChunk && $("pkMode").value === "volumes") notes.push("One archive cut into .001/.002 pieces. Every piece is needed to open it.");
+  if ($("pkPassword").value && $("pkFormat").value === "zip") notes.push("ZIP encrypts contents but not file names. Choose 7z to hide names too.");
+  if ($("pkManifest").checked) notes.push("The manifest text file lists file names in plain text even when the archive is encrypted.");
+  if (pkInfo && $("pkHash").checked && $("pkManifest").checked && pkInfo.total > 50 * 1024 ** 3) notes.push(`Hashing reads all ${fmtBytes(pkInfo.total)} once more before packing.`);
+  $("pkNote").textContent = notes.join(" ");
+}
+
+async function startPack() {
+  $("pkModal").hidden = true;
+  const options = {
+    format: $("pkFormat").value,
+    level: Number($("pkLevel").value),
+    solidCap: pkInfo && $("pkFormat").value === "7z" ? pkInfo.suggestion.solidCap : undefined,
+    chunkSize: $("pkChunk").value,
+    chunkMode: $("pkMode").value,
+    name: $("pkName").value.trim(),
+    password: $("pkPassword").value || undefined,
+    manifest: $("pkManifest").checked,
+    hash: $("pkManifest").checked && $("pkHash").checked,
+    outputMode: document.querySelector("input[name=outMode]:checked").value,
+    outputDir: settings.outputDir,
+  };
+  await api.pack.start(pkPaths, options);
+}
+
+function dirname(p) {
+  const parts = String(p).split(/[\\/]/);
+  parts.pop();
+  return parts.join("\\");
 }
 
 // ── google takeout ──────────────────────────────────────────────

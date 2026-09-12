@@ -16,6 +16,21 @@ all just work, on files of any size.
 - **Mass convert** — drop a stack of archives, or scan a whole folder, and
   repack them all as 7z/ZIP/tar.*; verified before the original is touched.
 - **Test** archive integrity.
+- **Smart compress** — drop files in Compress mode and the app analyzes them
+  (what they are, plus how well a sample actually deflates) and suggests a
+  format and level with a reason: Store for photos/video, solid 7z for
+  documents, capped solid blocks for mixed sets. Presets: Everyday, Archival,
+  Custom.
+- **Size limits** — 1, 2, 4 (FAT32-safe), 10, 20 or 50 GB per archive, as
+  *independent archives* (each opens on its own; folders kept together where
+  they fit) or as *volumes* of one archive. A single file bigger than the
+  limit becomes its own volume set automatically.
+- **Manifests** — an 8-character ID links archives and a text manifest:
+  `Album_K7M3Q9XZ-01of03.7z` … `Album_K7M3Q9XZ.manifest.txt`, listing every
+  file, size, date and which archive holds it, optionally with SHA-256. A copy
+  rides inside each archive. **Verify a manifest** later checks every archive
+  is present and intact and, with hashes, that every file is byte-for-byte
+  what was archived.
 - **Google Takeout** — point it at your downloads folder (or drop the parts)
   and it groups the numbered parts into exports, flags missing parts, checks
   every download for damage first, checks disk space for the whole export,

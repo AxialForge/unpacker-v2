@@ -23,3 +23,12 @@ All notable changes to this project are documented here. The format follows
   parts sequentially into one folder with skip/overwrite/keep-both, resumes
   interrupted runs, optional wrapper removal, JSON sidecar tidy, and
   Recycle-Bin cleanup of the parts. Dropping Takeout parts opens this flow.
+- Smart compress: content analysis with a deflate probe suggests format and
+  level with a reason; Everyday / Archival / Custom presets.
+- Size limits per archive (1–50 GB) as independent chunk archives (deepest
+  folders that fit stay together) or as volumes; oversized single files fall
+  back to volumes automatically.
+- Manifests with an 8-character ID shared by archives and the manifest file,
+  optional SHA-256 per file, a copy inside every archive, and a
+  "Verify a manifest" job that writes a .verify.txt report.
+- Solid block cap for 7z (`-ms`) so a damaged block stays local.
