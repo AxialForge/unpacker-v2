@@ -119,9 +119,13 @@ npm run dist      # dist/unpacker-v2-<ver>-setup.exe
 | --- | --- |
 | ![Smart compress](docs/screenshots/03-smart-compress.png) | ![Google Takeout](docs/screenshots/04-takeout.png) |
 
-| Mass extract | Settings |
+| Mass extract | Google Takeout tab |
 | --- | --- |
-| ![Mass extract](docs/screenshots/05-mass-extract.png) | ![Settings](docs/screenshots/07-settings.png) |
+| ![Mass extract](docs/screenshots/05-mass-extract.png) | ![Google Takeout tab](docs/screenshots/08-takeout-tab.png) |
+
+| Settings and updates | About |
+| --- | --- |
+| ![Settings](docs/screenshots/07-settings.png) | ![About](docs/screenshots/09-about.png) |
 
 ## Install
 

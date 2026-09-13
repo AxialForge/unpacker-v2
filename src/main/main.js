@@ -420,6 +420,7 @@ function registerIpc() {
   });
 
   ipcMain.handle("update:installNow", () => updater.installNow());
+  ipcMain.handle("update:check", () => updater.check());
 }
 
 // ── lifecycle ───────────────────────────────────────────────────
@@ -580,8 +581,19 @@ async function runScreenshots(outDir) {
 
   const shot = async (name) => {
     await new Promise((r) => setTimeout(r, 900));
-    const img = await mainWindow.webContents.capturePage();
-    fs.writeFileSync(path.join(outDir, `${name}.png`), img.toPNG());
+    // capturePage can throw UnknownVizError while the compositor is settling; retry.
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        mainWindow.show();
+        const img = await mainWindow.webContents.capturePage();
+        if (img.isEmpty()) throw new Error("empty capture");
+        fs.writeFileSync(path.join(outDir, `${name}.png`), img.toPNG());
+        return;
+      } catch (err) {
+        if (attempt >= 4) throw err;
+        await new Promise((r) => setTimeout(r, 700));
+      }
+    }
   };
   const open = (which, paths) => mainWindow.webContents.send("shot:open", { which, paths });
   const settle = () => new Promise((res) => {
@@ -611,6 +623,8 @@ async function runScreenshots(outDir) {
   await shot("07-settings");
   open("takeoutTab", [tk]);
   await shot("08-takeout-tab");
+  open("about", []);
+  await shot("09-about");
   open("archivesTab", []);
   fs.rmSync(work, { recursive: true, force: true });
   console.log(`screenshots written to ${outDir}`);

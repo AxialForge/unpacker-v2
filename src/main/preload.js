@@ -68,6 +68,7 @@ contextBridge.exposeInMainWorld("unpacker", {
     set: (enabled) => ipcRenderer.invoke("contextMenu:set", enabled),
   },
   update: {
+    check: () => ipcRenderer.invoke("update:check"),
     installNow: () => ipcRenderer.invoke("update:installNow"),
     onStatus: (cb) => on("update:status", cb),
   },

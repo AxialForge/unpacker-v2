@@ -163,6 +163,31 @@ function start(opts = {}) {
   }
 }
 
+/**
+ * Manual "Check now" from the Settings page. Emits through onStatus like the
+ * automatic check; returns a small result for the caller too.
+ */
+async function check() {
+  const { app } = require("electron");
+  if (!app.isPackaged) {
+    emit({ state: "dev", message: "Updates only run in the installed app." });
+    return { state: "dev" };
+  }
+  if (process.env.NO_AUTO_UPDATE) {
+    emit({ state: "disabled", message: "Updates are disabled on this machine (NO_AUTO_UPDATE)." });
+    return { state: "disabled" };
+  }
+  configure();
+  try {
+    const r = await autoUpdater.checkForUpdates();
+    return { state: "checked", version: r && r.updateInfo ? r.updateInfo.version : null };
+  } catch (err) {
+    const message = friendlyError(err);
+    emit({ state: "error", message });
+    return { state: "error", message };
+  }
+}
+
 /** Optional: apply a staged update right now instead of waiting for quit. */
 function installNow() {
   if (!wired) return { ok: false, error: "not-configured" };
@@ -173,6 +198,7 @@ function installNow() {
 
 module.exports = {
   start,
+  check,
   installNow,
   onStatus,
   // pure helpers, exported for tests / UI:

@@ -21,6 +21,11 @@ nothing extra.
 
 ## The main window
 
+The sidebar on the left switches between **Archives** (the queue and the
+compress/extract tools), **Google Takeout** (the guided wizard), **Settings**
+and **About**. The sidebar footer shows the version and, while jobs run,
+whether the PC is being kept awake.
+
 - **Drop zone.** Drop files, folders or archives. In **Auto** mode archives
   are extracted and everything else is compressed.
 - **Buttons.** *Add files*, *Add folder* and *Open archives* do the same via a
@@ -223,6 +228,16 @@ that folder are skipped. A `Takeout-import-report.txt` lands in the folder.
   *Extract to folder…*, *Convert archive…* and *Extract all archives in
   here…*. On Windows 11 they sit under "Show more options".
 - **Update automatically** from GitHub Releases.
+- **Updates section.** Shows the installed version, a *Check for updates
+  now* button with live status, and *Restart to update* once a new version
+  has downloaded. Updates are fetched over HTTPS and checked against the
+  release's SHA-512.
+
+## About
+
+Version, the 7-Zip engine version and path, whether WinRAR was found for RAR
+creation, links to the site, user guide, releases, changelog and issue
+tracker, and the licence notes for the bundled components.
 
 ## Command line
 

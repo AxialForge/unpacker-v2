@@ -7,21 +7,30 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body data-theme="dark">
-    <header class="topbar">
+    <div class="app">
+    <aside class="sidebar">
       <div class="brand">
-        <span class="logo" aria-hidden="true">▣</span>
-        <span class="name">Unpacker V2</span>
-        <span class="engine" id="engineBadge" title="Engine">engine…</span>
+        <img class="brand-icon" src="../../assets/icon-64.png" alt="" />
+        <div><div class="brand-name">Unpacker V2</div><div class="brand-sub" id="engineBadge" title="Engine">engine…</div></div>
       </div>
-      <nav class="tabs" id="tabs" role="tablist">
-        <button data-tab="archives" class="on" role="tab">Archives</button>
-        <button data-tab="takeout" role="tab">Google Takeout</button>
+      <nav class="nav" id="tabs">
+        <button class="nav-item on" data-tab="archives"><span class="ico">▣</span>Archives</button>
+        <button class="nav-item" data-tab="takeout"><span class="ico">G</span>Google Takeout</button>
+        <button class="nav-item" data-tab="settings"><span class="ico">⚙</span>Settings</button>
+        <button class="nav-item" data-tab="about"><span class="ico">ⓘ</span>About</button>
       </nav>
-      <div class="topbar-actions">
-        <button id="btnClear" class="btn ghost" title="Remove finished jobs from the list">Clear finished</button>
-        <button id="btnSettings" class="btn ghost" title="Settings">⚙ Settings</button>
+      <div class="sidebar-fill"></div>
+      <div class="sidebar-foot"><span class="muted" id="footVersion"></span><span class="spacer"></span><span id="awakeBadge" class="awake" hidden title="System sleep is blocked until the queue is empty (Settings)">awake</span></div>
+    </aside>
+
+    <div class="main">
+    <div class="topbar">
+      <h1 id="pageTitle">Archives</h1>
+      <div class="topbar-actions" id="archivesActions">
+        <button id="btnClear" class="btn ghost small" title="Remove finished jobs from the list">Clear finished</button>
       </div>
-    </header>
+    </div>
+
 
     <main id="tabTakeout" class="wizard" hidden>
       <ol class="wz-steps" id="wzSteps">
@@ -180,7 +189,7 @@
 
       <section class="right">
         <div class="queue-head">
-          <span>Queue <span id="awakeBadge" class="awake" hidden title="System sleep is blocked until the queue is empty (Settings)">keeping the PC awake</span></span>
+          <span>Queue</span>
           <span id="queueStats" class="muted"></span>
         </div>
         <div id="queue" class="queue">
@@ -388,9 +397,9 @@
     </div>
 
     <!-- settings -->
-    <div id="setModal" class="modal" hidden>
-      <div class="modal-card wide">
-        <h3>Settings</h3>
+    <main id="pageSettings" class="page" hidden>
+      <div class="page-inner">
+        <h3 class="section-title">General</h3>
         <div class="grid2">
           <label>
             <span>Jobs at the same time</span>
@@ -441,12 +450,51 @@
           <label class="check"><input type="checkbox" id="setContextMenu" /> Add "Add to archive / Extract here / Convert" to the Explorer right-click menu <span class="muted">(Windows 11: under "Show more options")</span></label>
           <label class="check"><input type="checkbox" id="setAutoUpdate" /> Update automatically from GitHub Releases</label>
         </div>
-        <p class="muted" id="aboutLine"></p>
-        <div class="modal-actions">
-          <button id="setClose" class="btn accent">Done</button>
+        <h3 class="section-title">Updates</h3>
+        <div class="panel">
+          <div class="upd-row">
+            <div><b>Installed version</b> <span class="mono" id="updVersion"></span></div>
+            <div class="btn-row">
+              <button id="updCheck" class="btn">Check for updates now</button>
+              <button id="updRestart" class="btn accent" hidden>Restart to update</button>
+            </div>
+          </div>
+          <p id="updStatus" class="muted">Not checked yet.</p>
+          <p class="muted">Updates come from the project's GitHub Releases over HTTPS and are checked against the release's SHA-512. A downloaded update installs itself the next time the app closes.</p>
         </div>
       </div>
-    </div>
+    </main>
+
+    <main id="pageAbout" class="page" hidden>
+      <div class="page-inner about">
+        <div class="about-head">
+          <img src="../../assets/icon-128.png" alt="" width="72" height="72" />
+          <div>
+            <h2>Unpacker V2 <span class="mono" id="aboutVersion"></span></h2>
+            <p class="muted">A drag-and-drop Windows archiver on the 7-Zip engine, built by AxialForge.</p>
+          </div>
+        </div>
+        <h3 class="section-title">Engines</h3>
+        <table class="kv" id="aboutEngines"></table>
+        <h3 class="section-title">Links</h3>
+        <div class="btn-row">
+          <button class="btn" data-url="https://axialforge.github.io/unpacker-v2/">Project site</button>
+          <button class="btn" data-url="https://github.com/AxialForge/unpacker-v2/blob/main/docs/USER-GUIDE.md">User guide</button>
+          <button class="btn" data-url="https://github.com/AxialForge/unpacker-v2/releases">Releases</button>
+          <button class="btn" data-url="https://github.com/AxialForge/unpacker-v2/blob/main/CHANGELOG.md">Changelog</button>
+          <button class="btn" data-url="https://github.com/AxialForge/unpacker-v2/issues">Report a problem</button>
+        </div>
+        <h3 class="section-title">Licences</h3>
+        <ul class="muted about-lic">
+          <li>Unpacker V2 — MIT licence, © 2026 AxialForge.</li>
+          <li>7-Zip — © Igor Pavlov, GNU LGPL with the unRAR restriction (the RAR decompression code may not be used to build a RAR compressor). Bundled as <span class="mono">resources/7zip</span>.</li>
+          <li>RAR creation uses your own installed WinRAR; nothing from RARLAB is bundled.</li>
+          <li>Electron — MIT licence. Chromium and Node.js under their respective licences.</li>
+        </ul>
+      </div>
+    </main>
+    </div><!-- /main -->
+    </div><!-- /app -->
 
     <script src="app.js"></script>
     <script src="takeout-tab.js"></script>

@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-13
+
+### Changed
+
+- Sidebar layout (Archives, Google Takeout, Settings, About) in place of the
+  top tabs and the Settings dialog; version and engine shown in the sidebar.
+- Settings is a page with a new **Updates** section: installed version,
+  "Check for updates now", live status, and "Restart to update".
+
+### Added
+
+- About page: version, engine paths and versions, WinRAR status, links to the
+  site, guide, releases, changelog and issues, and licence notes.
+
 ## [0.2.0] - 2026-09-13
 
 ### Added

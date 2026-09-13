@@ -44,7 +44,10 @@ async function boot() {
     badge.classList.add("bad");
     notice(info.engine.error, "err", 0);
   }
-  $("aboutLine").textContent = `Unpacker V2 ${info.version} · engine: ${info.engine.path || "none"} · RAR creation: ${info.rar ? "via WinRAR" : "not available (WinRAR not installed)"}`;
+  $("footVersion").textContent = `v${info.version}`;
+  $("updVersion").textContent = info.version;
+  $("aboutVersion").textContent = `v${info.version}`;
+  fillAbout();
 
   for (const j of await api.jobs.list()) upsertJob(j);
   api.jobs.onChange(upsertJob);
@@ -57,11 +60,13 @@ async function boot() {
   });
   api.onCliRequest(handleCliRequest);
   api.onShot(async ({ which, paths }) => {
-    for (const id of ["pwModal", "convModal", "pkModal", "tkModal", "meModal", "setModal"]) $(id).hidden = true;
+    for (const id of ["pwModal", "convModal", "pkModal", "tkModal", "meModal"]) $(id).hidden = true;
+    showTab("archives");
     if (which === "pack") await openPackModal(paths);
     else if (which === "takeout") await openTakeoutModal(paths);
     else if (which === "massExtract") await openMassExtractModal(paths);
-    else if (which === "settings") await openSettings();
+    else if (which === "settings") showTab("settings");
+    else if (which === "about") showTab("about");
     else if (which === "convert") openConvertModal(paths, `${paths.length} archives selected.`);
     else if (which === "takeoutTab") {
       showTab("takeout");
@@ -70,6 +75,7 @@ async function boot() {
   });
   api.update.onStatus((s) => {
     if (s.state === "ready") notice(`Update ${s.version} downloaded. It installs when you close the app.`, "ok", 0, { label: "Restart now", fn: () => api.update.installNow() });
+    showUpdateStatus(s);
   });
   wireUi();
 }
@@ -85,12 +91,51 @@ function fillSelect(sel, items, map) {
   }
 }
 
+const PAGES = { archives: ["tabArchives", "Archives"], takeout: ["tabTakeout", "Google Takeout"], settings: ["pageSettings", "Settings"], about: ["pageAbout", "About"] };
 function showTab(name) {
+  if (!PAGES[name]) name = "archives";
   document.body.dataset.tab = name;
   for (const b of $("tabs").children) b.classList.toggle("on", b.dataset.tab === name);
-  $("tabArchives").hidden = name !== "archives";
-  $("tabTakeout").hidden = name !== "takeout";
+  for (const [key, [id]] of Object.entries(PAGES)) $(id).hidden = key !== name;
+  $("pageTitle").textContent = PAGES[name][1];
+  $("archivesActions").hidden = name !== "archives";
   $("dropZone").classList.remove("over");
+  if (name === "settings") openSettings();
+}
+
+function showUpdateStatus(s) {
+  const map = {
+    checking: "Checking GitHub Releases…",
+    available: `Version ${s.version} is available; downloading in the background.`,
+    downloading: `Downloading update… ${s.percent || 0}%`,
+    ready: `Version ${s.version} is downloaded. It installs when the app closes, or restart now.`,
+    current: "You have the latest version.",
+    error: `Could not check: ${s.message}`,
+    dev: s.message,
+    disabled: s.message,
+  };
+  $("updStatus").textContent = map[s.state] || s.state;
+  $("updRestart").hidden = s.state !== "ready";
+}
+
+function fillAbout() {
+  const rows = [
+    ["7-Zip engine", info.engine.path ? `${info.engine.version || "?"} — ${info.engine.path}` : info.engine.error],
+    ["RAR creation", info.rar ? `WinRAR — ${info.rar}` : "not available (WinRAR not installed; extraction still works)"],
+    ["Build", info.isPackaged ? "installed" : "running from source"],
+  ];
+  const t = $("aboutEngines");
+  t.innerHTML = "";
+  for (const [k, v] of rows) {
+    const tr = document.createElement("tr");
+    const a = document.createElement("td");
+    a.textContent = k;
+    const b = document.createElement("td");
+    b.textContent = v;
+    b.className = "mono";
+    tr.append(a, b);
+    t.appendChild(tr);
+  }
 }
 
 function applyTheme() {
@@ -249,8 +294,13 @@ function wireUi() {
   $("convOk").addEventListener("click", startConvert);
 
   // settings modal
-  $("btnSettings").addEventListener("click", openSettings);
-  $("setClose").addEventListener("click", () => ($("setModal").hidden = true));
+  $("updCheck").addEventListener("click", async () => {
+    $("updStatus").textContent = "Checking GitHub Releases…";
+    const r = await api.update.check();
+    if (r && r.state === "checked" && !r.version) $("updStatus").textContent = "You have the latest version.";
+  });
+  $("updRestart").addEventListener("click", () => api.update.installNow());
+  for (const b of document.querySelectorAll("#pageAbout button[data-url]")) b.addEventListener("click", () => api.shell.openExternal(b.dataset.url));
   $("setConcurrency").addEventListener("change", () => save({ concurrency: Number($("setConcurrency").value) }));
   $("setExtractMode").addEventListener("change", () => save({ extractMode: $("setExtractMode").value }));
   $("setOverwrite").addEventListener("change", () => save({ overwrite: $("setOverwrite").value }));
@@ -305,7 +355,6 @@ async function openSettings() {
   $("setPreventSleep").checked = settings.preventSleep !== false;
   $("setCloseToTray").checked = !!settings.closeToTray;
   $("setContextMenu").checked = await api.contextMenu.get();
-  $("setModal").hidden = false;
 }
 
 // ── convert modal ───────────────────────────────────────────────
