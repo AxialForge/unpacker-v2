@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-13
+
+### Added
+
+- Mass extract: source archives can be moved into a `<folder name> -
+  archival` folder inside the extracted location once every archive
+  succeeded, as an alternative to keeping them or binning them. The group
+  card gets an "Open archival folder" button.
+
 ## [0.2.1] - 2026-09-13
 
 ### Changed

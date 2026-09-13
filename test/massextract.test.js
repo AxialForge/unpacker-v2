@@ -61,6 +61,13 @@ test("scanFolder and collectArchives find entry points and summarise", async () 
   }
 });
 
+test("archivalDirFor names the folder after the archive's parent, inside the extracted location", () => {
+  const { archivalDirFor } = require("../src/main/groups");
+  assert.equal(archivalDirFor("D:\\Downloads\\Photos 2019\\a.zip", null), path.join("D:\\Downloads\\Photos 2019", "Photos 2019 - archival"));
+  assert.equal(archivalDirFor("D:\\Downloads\\Photos 2019\\a.zip", "E:\\Merged"), path.join("E:\\Merged", "Photos 2019 - archival"));
+  assert.equal(archivalDirFor("D:\\Downloads\\Photos 2019\\sub\\b.rar", null), path.join("D:\\Downloads\\Photos 2019\\sub", "sub - archival"));
+});
+
 test("--extract-all is a CLI flag and a Directory verb", () => {
   assert.deepEqual(parseCli(["--extract-all", "C:\\dl"]), [{ flag: "--extract-all", paths: ["C:\\dl"] }]);
   const ops = shellInt.plan("X.exe");

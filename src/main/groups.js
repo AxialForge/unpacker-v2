@@ -13,6 +13,7 @@ const { EventEmitter } = require("node:events");
 const fs = require("node:fs");
 const path = require("node:path");
 const { volumeSiblings } = require("./jobs/runner");
+const { uniquePath } = require("./safety");
 
 class GroupRegistry extends EventEmitter {
   /**
@@ -39,7 +40,7 @@ class GroupRegistry extends EventEmitter {
 
   /**
    * @param {string[]} paths archive entry points
-   * @param {object} options { destMode:"own"|"merge"|"here", mergeDir, overwrite, nested, password, trashSources, sequential }
+   * @param {object} options { destMode:"own"|"merge"|"here", mergeDir, overwrite, nested, password, sourcesAfter:"keep"|"trash"|"archival", sequential }
    */
   start(paths, options = {}) {
     this.seq += 1;
@@ -93,6 +94,7 @@ class GroupRegistry extends EventEmitter {
       allOk: jobs.length > 0 && count("done") === jobs.length,
       report: g.report,
       mergeDir: g.options.mergeDir,
+      archivalDir: g.archivalDir || null,
     };
   }
 
@@ -135,20 +137,33 @@ class GroupRegistry extends EventEmitter {
       lines.push(`${j.state.padEnd(10)} ${"  ".repeat(j.depth || 0)}${j.inputs[0]}${j.state === "done" ? ` -> ${j.output}` : j.error ? `  (${j.error})` : ""}`);
       for (const w of j.warnings) lines.push(`           ! ${w}`);
     }
-    if (g.options.trashSources) {
+    // sourcesAfter: "keep" | "trash" | "archival". (trashSources: true is the old spelling of "trash".)
+    const after = g.options.sourcesAfter || (g.options.trashSources ? "trash" : "keep");
+    if (after !== "keep") {
       if (s.allOk) {
         let n = 0;
+        const archDirs = new Set();
         for (const src of g.sources) {
           try {
             for (const v of volumeSiblings(src)) {
-              await this.trash(v);
+              if (after === "trash") await this.trash(v);
+              else {
+                const dst = archivalDirFor(v, g.options.mergeDir);
+                fs.mkdirSync(dst, { recursive: true });
+                archDirs.add(dst);
+                await moveTo(v, path.join(dst, path.basename(v)));
+              }
               n += 1;
             }
           } catch (err) {
-            lines.push(`could not bin ${src}: ${err.message}`);
+            lines.push(`could not ${after === "trash" ? "bin" : "move"} ${src}: ${err.message}`);
           }
         }
-        lines.push("", `moved ${n} source file(s) to the Recycle Bin`);
+        if (after === "trash") lines.push("", `moved ${n} source file(s) to the Recycle Bin`);
+        else {
+          g.archivalDir = [...archDirs][0] || null;
+          lines.push("", `moved ${n} source file(s) into ${[...archDirs].join(", ")}`);
+        }
       } else {
         lines.push("", "sources kept: not every archive succeeded");
       }
@@ -164,4 +179,29 @@ class GroupRegistry extends EventEmitter {
   }
 }
 
-module.exports = { GroupRegistry };
+/**
+ * Where a source archive goes under the "archival" option:
+ *   <extracted folder>/<parent folder name> - archival/
+ * The extracted folder is the merge folder when merging, else the folder the
+ * archive was in; the parent folder name is that folder's own name.
+ */
+function archivalDirFor(src, mergeDir) {
+  const parent = path.dirname(src);
+  const base = mergeDir || parent;
+  const name = path.basename(parent) || "Archives";
+  return path.join(base, `${name} - archival`);
+}
+
+async function moveTo(src, dst) {
+  const target = uniquePath(dst, (p) => fs.existsSync(p));
+  try {
+    await fs.promises.rename(src, target);
+  } catch (err) {
+    if (err.code !== "EXDEV") throw err;
+    await fs.promises.copyFile(src, target);
+    await fs.promises.unlink(src);
+  }
+  return target;
+}
+
+module.exports = { GroupRegistry, archivalDirFor };

@@ -120,8 +120,11 @@ right-click a folder in Explorer and choose *Extract all archives in here…*.
 - **Archives found inside the extracted files.** Leave them; extract them
   too and keep the nested archive; or extract them too and send the nested
   archive to the Recycle Bin. Up to three levels deep.
-- **Recycle Bin the sources** only when every archive succeeded. One failure
-  keeps everything.
+- **What happens to the source archives** once every archive succeeded:
+  leave them where they are, move them into a `<folder name> - archival`
+  folder inside the extracted location (the folder they were in, or the
+  merge folder), or send them to the Recycle Bin. One failure keeps
+  everything in place.
 - **One archive at a time** is on by default; they share a disk.
 
 A summary card at the top of the queue tracks the batch and offers *Cancel

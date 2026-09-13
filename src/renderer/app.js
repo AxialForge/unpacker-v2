@@ -544,7 +544,7 @@ async function startMassExtract() {
       overwrite: $("meOverwrite").value,
       nested: $("meNested").value,
       password: $("mePassword").value || undefined,
-      trashSources: $("meTrash").checked,
+      sourcesAfter: $("meSources").value,
       sequential: $("meSequential").checked,
     },
   });
@@ -591,6 +591,7 @@ function upsertGroup(g) {
   if (!g.finished) btn("Cancel remaining", () => api.groups.cancel(g.id));
   if (g.finished && g.report) btn("Report", () => api.shell.openPath(g.report));
   if (g.finished && g.mergeDir) btn("Open folder", () => api.shell.openPath(g.mergeDir));
+  if (g.finished && g.archivalDir) btn("Open archival folder", () => api.shell.openPath(g.archivalDir));
   if (g.finished) btn("✕", () => api.groups.remove(g.id));
 }
 

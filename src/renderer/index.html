@@ -348,7 +348,13 @@
           </label>
         </div>
         <div class="checks">
-          <label class="check"><input type="checkbox" id="meTrash" /> When every archive succeeded, move the source archives to the Recycle Bin</label>
+          <label><span class="muted">When every archive succeeded, the source archives are</span>
+            <select id="meSources">
+              <option value="keep">Left where they are</option>
+              <option value="archival">Moved into a "&lt;folder name&gt; - archival" folder inside the extracted folder</option>
+              <option value="trash">Moved to the Recycle Bin</option>
+            </select>
+          </label>
           <label class="check"><input type="checkbox" id="meSequential" checked /> One archive at a time <span class="muted">(they share a disk; parallel only thrashes it)</span></label>
         </div>
         <div class="modal-actions">
