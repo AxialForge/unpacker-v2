@@ -6,12 +6,26 @@ const path = require("node:path");
 const tk = require("../src/main/takeout");
 
 test("parseTakeoutName recognises Google's part names only", () => {
-  assert.deepEqual(tk.parseTakeoutName("C:\\dl\\takeout-20260912T140102Z-001.zip"), { stamp: "20260912T140102Z", index: 1, format: "zip" });
-  assert.deepEqual(tk.parseTakeoutName("TAKEOUT-20260912T140102Z-012.TGZ"), { stamp: "20260912T140102Z", index: 12, format: "tgz" });
+  assert.deepEqual(tk.parseTakeoutName("C:\\dl\\takeout-20260912T140102Z-001.zip"), { stamp: "20260912T140102Z", set: 0, index: 1, copy: 0, format: "zip" });
+  assert.deepEqual(tk.parseTakeoutName("TAKEOUT-20260912T140102Z-012.TGZ"), { stamp: "20260912T140102Z", set: 0, index: 12, copy: 0, format: "tgz" });
   assert.equal(tk.parseTakeoutName("takeout-20260912T140102Z-001.tar.gz").format, "tgz");
+  // real multi-set exports carry "-<set>-" and browsers add " (1)" on a re-download
+  assert.deepEqual(tk.parseTakeoutName("takeout-20260912T132526Z-2-028 (1).zip"), { stamp: "20260912T132526Z", set: 2, index: 28, copy: 1, format: "zip" });
   assert.equal(tk.parseTakeoutName("photos.zip"), null);
   assert.equal(tk.parseTakeoutName("takeout-2026-001.zip"), null);
   assert.equal(tk.isTakeoutPart("takeout-20260912T140102Z-003.zip"), true);
+});
+
+test("groupTakeout separates sets and folds re-downloads into duplicates", () => {
+  const paths = ["d/takeout-20260912T132526Z-1-001.zip", "d/takeout-20260912T132526Z-2-001.zip", "d/takeout-20260912T132526Z-2-002 (1).zip", "d/takeout-20260912T132526Z-2-002.zip"];
+  const g = tk.groupTakeout(paths, (p) => (p.includes("(1)") ? 5 : 10));
+  assert.equal(g.length, 2);
+  assert.deepEqual(g.map((x) => x.set), [1, 2]);
+  const set2 = g[1];
+  assert.deepEqual(set2.parts.map((p) => `${p.index}:${p.copy}`), ["1:0", "2:0"], "the un-suffixed download wins");
+  assert.equal(set2.duplicates.length, 1);
+  assert.equal(set2.duplicates[0].sameSize, false, "different size flagged");
+  assert.equal(set2.totalBytes, 20);
 });
 
 test("groupTakeout groups by timestamp, sorts parts, reports gaps and sizes", () => {

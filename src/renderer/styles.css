@@ -28,6 +28,9 @@
 * {
   box-sizing: border-box;
 }
+[hidden] {
+  display: none !important; /* beats display:grid/flex on tab panes and modals */
+}
 html,
 body {
   height: 100%;
@@ -91,6 +94,174 @@ input {
   color: var(--err);
   border-color: var(--err);
 }
+.tabs {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  -webkit-app-region: no-drag;
+}
+.tabs button {
+  background: transparent;
+  border: 0;
+  padding: 6px 16px;
+  cursor: pointer;
+  border-right: 1px solid var(--line);
+}
+.tabs button:last-child {
+  border-right: 0;
+}
+.tabs button.on {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── Takeout wizard ── */
+.wizard {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 24px 80px;
+  max-width: 980px;
+  width: 100%;
+  margin: 0 auto;
+  position: relative;
+}
+.wizard h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+.wz-steps {
+  list-style: none;
+  display: flex;
+  gap: 6px;
+  padding: 0;
+  margin: 0 0 18px;
+}
+.wz-steps li {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.wz-steps li span {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg3);
+  font-size: 12px;
+}
+.wz-steps li.on {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.wz-steps li.on span {
+  background: var(--accent);
+  color: #fff;
+}
+.wz-steps li.past span {
+  background: var(--ok);
+  color: #fff;
+}
+.wz-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dropzone.small {
+  min-height: 110px;
+}
+.wz-found {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wz-cols {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 12px;
+}
+@media (max-width: 860px) {
+  .wz-cols {
+    grid-template-columns: 1fr;
+  }
+}
+.wz-services {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 22px;
+  font-size: 12px;
+}
+.wz-rail {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wz-rail li {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg2);
+}
+.wz-rail li.running {
+  border-color: var(--accent);
+}
+.wz-rail li.done {
+  border-color: var(--ok);
+}
+.wz-rail li.failed,
+.wz-rail li.cancelled,
+.wz-rail li.needs-password {
+  border-color: var(--err);
+}
+.bar.big {
+  height: 10px;
+  background: var(--bg3);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.bar.big > i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  width: 0;
+  transition: width 0.15s;
+}
+.wz-summary {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  font: 12px/1.5 var(--mono);
+  white-space: pre-wrap;
+  max-height: 40vh;
+  overflow: auto;
+}
+.wz-nav {
+  position: sticky;
+  bottom: 0;
+  margin-top: 18px;
+  padding: 12px 0;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .topbar-actions {
   display: flex;
   gap: 8px;

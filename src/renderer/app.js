@@ -63,6 +63,10 @@ async function boot() {
     else if (which === "massExtract") await openMassExtractModal(paths);
     else if (which === "settings") await openSettings();
     else if (which === "convert") openConvertModal(paths, `${paths.length} archives selected.`);
+    else if (which === "takeoutTab") {
+      showTab("takeout");
+      if (paths.length && window.takeoutTab) await window.takeoutTab.onDrop(paths);
+    } else if (which === "archivesTab") showTab("archives");
   });
   api.update.onStatus((s) => {
     if (s.state === "ready") notice(`Update ${s.version} downloaded. It installs when you close the app.`, "ok", 0, { label: "Restart now", fn: () => api.update.installNow() });
@@ -79,6 +83,14 @@ function fillSelect(sel, items, map) {
     o.textContent = l;
     sel.appendChild(o);
   }
+}
+
+function showTab(name) {
+  document.body.dataset.tab = name;
+  for (const b of $("tabs").children) b.classList.toggle("on", b.dataset.tab === name);
+  $("tabArchives").hidden = name !== "archives";
+  $("tabTakeout").hidden = name !== "takeout";
+  $("dropZone").classList.remove("over");
 }
 
 function applyTheme() {
@@ -136,7 +148,14 @@ function wireUi() {
     stop(e);
     dz.classList.remove("over");
     const paths = [...(e.dataTransfer.files || [])].map((f) => api.pathForFile(f)).filter(Boolean);
+    if (document.body.dataset.tab === "takeout" && window.takeoutTab) return window.takeoutTab.onDrop(paths);
     submitPaths(paths);
+  });
+
+  // top-level tabs: Archives (the queue) / Google Takeout (the wizard)
+  $("tabs").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-tab]");
+    if (b) showTab(b.dataset.tab);
   });
 
   $("actionSeg").addEventListener("click", (e) => {

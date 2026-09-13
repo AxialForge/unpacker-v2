@@ -135,11 +135,56 @@ be a target only when WinRAR is installed.
 
 ![Mass convert](screenshots/06-mass-convert.png)
 
-## Google Takeout
+## The Google Takeout tab
 
-Takeout splits an export into numbered parts, `takeout-<date>-001.zip`,
-`-002.zip`, …, that all share one `Takeout/` folder. Click *Google Takeout…*
-and pick your downloads folder, or drop the parts.
+The **Google Takeout** tab at the top of the window is a guided, four-step
+flow for the whole job: check the downloads, extract them, and organize the
+result into clean libraries.
+
+![The Google Takeout tab](screenshots/08-takeout-tab.png)
+
+1. **Select.** Drop the `takeout-…zip` parts or the folder they're in, or
+   point at a folder you already extracted. Each export is listed with its
+   part count and size; missing parts and browser re-downloads
+   (`…-028 (1).zip`) are called out. Multi-set exports (`…-2-001.zip`) are
+   grouped per set.
+2. **Options.** Extraction: damage check first, resume, collision policy,
+   Recycle-Bin the parts when done. Organizing: where the library goes and
+   what to do per service.
+3. **Run.** A rail shows Check → Extract → Organize with live progress. Cancel
+   is one click; nothing half-done is left behind.
+4. **Done.** A summary, and buttons to open the library and the report.
+
+**What organizing does**
+
+- **Google Photos** become `Library/Photos/YYYY/MM/…`. Each photo's date is
+  read from Google's JSON sidecar and applied to the file's modified time.
+  JPEGs that carry no EXIF date get the taken time written into EXIF, so the
+  date survives copying. The same photo repeated across albums is kept once
+  (by content hash); album membership is written to `Photos/Albums.txt`.
+  Sidecars move to `Photos/_json`, stay where they are, or go to the Recycle
+  Bin, your choice. Files without a sidecar land in `Photos/Undated`.
+- **Drive, Mail, Contacts, Calendar, YouTube and everything else** move into
+  `Library/<Service>/…`, merged across all parts, with the tree intact. Any
+  service can be excluded.
+- Files are moved, not copied, when the library is on the same drive, so
+  even a 300 GB export organizes in minutes. Nothing is deleted outright:
+  duplicates and unwanted sidecars go to the Recycle Bin.
+- A `Takeout-organize-report.txt` in the library lists the counts: media
+  placed, dated, EXIF written, duplicates removed, sidecars without media
+  (their photo is in a part you don't have yet).
+
+The organizer also understands the mess a browser leaves: several per-part
+folders each holding a `Takeout/`, next to a half-merged one. Point it at the
+parent and all of them are gathered.
+
+## The Google Takeout dialog (quick merge)
+
+The older *Google Takeout…* button on the Archives tab merges parts without
+organizing. Takeout splits an export into numbered parts,
+`takeout-<date>-001.zip`, `-002.zip`, …, that all share one `Takeout/`
+folder. Click *Google Takeout…* and pick your downloads folder, or drop the
+parts.
 
 ![Google Takeout: exports found, missing parts, merge options](screenshots/04-takeout.png)
 

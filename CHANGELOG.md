@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-13
+
+### Added
+
+- Google Takeout tab: a four-step wizard (Select, Options, Run, Done) that
+  finds exports in a downloads folder or an already-extracted tree, checks and
+  extracts the parts, then organizes the result into per-service libraries.
+- Organizer: Photos dated from JSON sidecars, EXIF DateTimeOriginal written
+  into JPEGs that lack it, Year/Month folders with `Albums.txt`, duplicate
+  removal by hash, sidecar handling (park/keep/bin); Drive, Mail, Contacts,
+  Calendar, YouTube and other services merged into one folder each; report.
+- Takeout part matching for multi-set exports (`-2-001`) and browser
+  re-downloads (`-028 (1).zip`), which are ignored with a size check.
+- Queue jobs can depend on another job (`after`); Organize waits for Extract
+  and is skipped if extraction fails or is cancelled.
+
 ## [0.1.0] - 2026-09-12
 
 ### Added

@@ -33,7 +33,12 @@ class JobQueue extends EventEmitter {
    * groupId ties jobs into a batch (mass extract); sequential: true means at
    * most one job of that group runs at a time, whatever the global concurrency.
    */
-  add({ kind, label, inputs, options = {}, groupId = null, sequential = false, depth = 0 }) {
+  /**
+   * after: id of a job this one waits for. It starts only when that job is
+   * "done" (and inherits its output as input when inputs is empty); if that
+   * job fails or is cancelled, this one is cancelled too.
+   */
+  add({ kind, label, inputs, options = {}, groupId = null, sequential = false, depth = 0, after = null }) {
     seq += 1;
     const id = `j${Date.now().toString(36)}${seq}`;
     const job = {
@@ -45,6 +50,7 @@ class JobQueue extends EventEmitter {
       groupId,
       sequential: !!sequential,
       depth,
+      after,
       state: "queued",
       progress: 0,
       stage: "Queued",
@@ -137,7 +143,22 @@ class JobQueue extends EventEmitter {
   #pump() {
     while (this.running < this.concurrency) {
       const runningGroups = new Set(this.list().filter((j) => j.state === "running" && j.sequential && j.groupId).map((j) => j.groupId));
-      const next = this.list().find((j) => j.state === "queued" && !(j.sequential && j.groupId && runningGroups.has(j.groupId)));
+      // resolve dependencies first: cancel dependents of failed/cancelled jobs
+      for (const j of this.list()) {
+        if (j.state !== "queued" || !j.after) continue;
+        const dep = this.jobs.get(j.after);
+        if (!dep || dep.state === "failed" || dep.state === "cancelled") this.#finish(j, { state: "cancelled", stage: dep ? `Skipped: "${dep.label}" ${dep.state}` : "Skipped: dependency missing" });
+      }
+      const next = this.list().find((j) => {
+        if (j.state !== "queued") return false;
+        if (j.sequential && j.groupId && runningGroups.has(j.groupId)) return false;
+        if (j.after) {
+          const dep = this.jobs.get(j.after);
+          if (!dep || dep.state !== "done") return false;
+          if (!j.inputs || !j.inputs.length) j.inputs = [dep.output];
+        }
+        return true;
+      });
       if (!next) break;
       this.#start(next);
     }

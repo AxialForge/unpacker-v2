@@ -40,7 +40,13 @@ all just work, on files of any size.
   rides inside each archive. **Verify a manifest** later checks every archive
   is present and intact and, with hashes, that every file is byte-for-byte
   what was archived.
-- **Google Takeout** — point it at your downloads folder (or drop the parts)
+- **Google Takeout tab** — a guided flow: select the downloaded parts (or an
+  already-extracted folder), check them, extract, then organize into clean
+  libraries. Photos get dates from Google's JSON, EXIF taken-time for JPEGs,
+  Year/Month folders, duplicate removal and an album index; Drive, Mail and
+  every other service land in one folder each. Handles multi-set exports and
+  browser re-downloads.
+- **Google Takeout** (quick merge) — point it at your downloads folder (or drop the parts)
   and it groups the numbered parts into exports, flags missing parts, checks
   every download for damage first, checks disk space for the whole export,
   then merges the parts one at a time into a single folder. Interrupted runs

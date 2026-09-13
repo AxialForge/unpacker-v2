@@ -13,13 +13,107 @@
         <span class="name">Unpacker V2</span>
         <span class="engine" id="engineBadge" title="Engine">engine…</span>
       </div>
+      <nav class="tabs" id="tabs" role="tablist">
+        <button data-tab="archives" class="on" role="tab">Archives</button>
+        <button data-tab="takeout" role="tab">Google Takeout</button>
+      </nav>
       <div class="topbar-actions">
         <button id="btnClear" class="btn ghost" title="Remove finished jobs from the list">Clear finished</button>
         <button id="btnSettings" class="btn ghost" title="Settings">⚙ Settings</button>
       </div>
     </header>
 
-    <main class="layout">
+    <main id="tabTakeout" class="wizard" hidden>
+      <ol class="wz-steps" id="wzSteps">
+        <li data-step="1" class="on"><span>1</span>Select</li>
+        <li data-step="2"><span>2</span>Options</li>
+        <li data-step="3"><span>3</span>Run</li>
+        <li data-step="4"><span>4</span>Done</li>
+      </ol>
+
+      <section class="wz-page" data-page="1">
+        <h2>What do you have?</h2>
+        <p class="muted">Drop the downloaded <span class="mono">takeout-…zip</span> parts, or the folder they're in. An already-extracted Takeout folder works too.</p>
+        <div id="wzDrop" class="dropzone small"><div class="drop-inner"><div class="drop-icon">⤓</div><div class="drop-title">Drop Takeout parts or a folder here</div></div></div>
+        <div class="btn-row">
+          <button id="wzPickDownloads" class="btn accent">Choose the downloads folder…</button>
+          <button id="wzPickTree" class="btn">Choose an extracted Takeout folder…</button>
+        </div>
+        <div id="wzFound" class="wz-found"></div>
+        <div class="grid2" id="wzDestRow" hidden>
+          <label class="span2">
+            <span>Extract the parts into</span>
+            <div class="inline"><input id="wzDest" type="text" /><button id="wzDestBrowse" class="btn small">choose…</button></div>
+          </label>
+        </div>
+      </section>
+
+      <section class="wz-page" data-page="2" hidden>
+        <h2>Options</h2>
+        <div class="wz-cols">
+          <div class="panel" id="wzExtractPanel">
+            <div class="panel-title">Extracting the parts</div>
+            <div class="checks">
+              <label class="check"><input type="checkbox" id="wzVerify" checked /> Check every download for damage first</label>
+              <label class="check"><input type="checkbox" id="wzResume" checked /> Skip parts already extracted into that folder</label>
+              <label class="check"><input type="checkbox" id="wzTrashParts" /> Recycle-Bin the parts when the export succeeded</label>
+            </div>
+            <label><span class="muted">If a file already exists</span>
+              <select id="wzOverwrite"><option value="skip">Skip it</option><option value="overwrite">Overwrite it</option><option value="rename">Keep both</option></select>
+            </label>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Organizing into libraries</div>
+            <label class="check"><input type="checkbox" id="wzOrganize" checked /> <b>Organize</b> the extracted files into clean per-service libraries</label>
+            <label><span class="muted">Library folder</span>
+              <div class="inline"><input id="wzLibrary" type="text" placeholder="(next to the Takeout folder)" /><button id="wzLibraryBrowse" class="btn small">choose…</button></div>
+            </label>
+            <div class="checks" id="wzPhotoOpts">
+              <div class="panel-title">Google Photos</div>
+              <label class="check"><input type="checkbox" id="wzPhotos" checked /> Build a Photos library</label>
+              <label class="check"><input type="checkbox" id="wzDates" checked /> Set each file's date from Google's JSON (taken time)</label>
+              <label class="check"><input type="checkbox" id="wzExif" checked /> Write the taken time into EXIF for JPEGs that lack it</label>
+              <label class="check"><input type="checkbox" id="wzYearMonth" checked /> Sort into Year/Month folders; albums listed in <span class="mono">Albums.txt</span></label>
+              <label class="check"><input type="checkbox" id="wzDedupe" checked /> Remove duplicates (same photo in several albums), keeping one</label>
+              <label><span class="muted">JSON sidecars after use</span>
+                <select id="wzSidecars"><option value="json">Move into Photos/_json</option><option value="keep">Leave where they are</option><option value="remove">Recycle Bin</option></select>
+              </label>
+            </div>
+            <div class="checks" id="wzServiceOpts">
+              <div class="panel-title">Other services</div>
+              <label class="check"><input type="checkbox" id="wzServices" checked /> Move Drive, Mail, Contacts, Calendar, YouTube and everything else into the library, one folder per service</label>
+              <div id="wzServiceList" class="wz-services"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="wz-page" data-page="3" hidden>
+        <h2>Running</h2>
+        <ol class="wz-rail" id="wzRail"></ol>
+        <p id="wzStage" class="muted mono"></p>
+        <div class="bar big"><i id="wzBar"></i></div>
+        <div class="btn-row"><button id="wzCancel" class="btn">Cancel</button></div>
+      </section>
+
+      <section class="wz-page" data-page="4" hidden>
+        <h2 id="wzDoneTitle">Done</h2>
+        <pre id="wzSummary" class="wz-summary"></pre>
+        <div class="btn-row">
+          <button id="wzOpenLibrary" class="btn accent">Open the library</button>
+          <button id="wzOpenReport" class="btn">Open the report</button>
+          <button id="wzAgain" class="btn">Start another</button>
+        </div>
+      </section>
+
+      <div class="wz-nav">
+        <button id="wzBack" class="btn ghost" hidden>Back</button>
+        <span class="muted" id="wzHint"></span>
+        <button id="wzNext" class="btn accent" disabled>Next</button>
+      </div>
+    </main>
+
+    <main id="tabArchives" class="layout">
       <section class="left">
         <div id="dropZone" class="dropzone" tabindex="0">
           <div class="drop-inner">
@@ -355,5 +449,6 @@
     </div>
 
     <script src="app.js"></script>
+    <script src="takeout-tab.js"></script>
   </body>
 </html>

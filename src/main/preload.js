@@ -48,6 +48,10 @@ contextBridge.exposeInMainWorld("unpacker", {
     // start({ exports:[{parts:[paths]}], options }) -> one job per export
     start: (req) => ipcRenderer.invoke("takeout:start", req),
     defaultDest: (partPath) => ipcRenderer.invoke("takeout:defaultDest", partPath),
+    // Wizard: files/folders -> { exports, trees:[{root, services}] }
+    discover: (paths) => ipcRenderer.invoke("takeout:discover", paths),
+    // Wizard: queue extract (per export) then organize; or organize existing trees
+    runPipeline: (req) => ipcRenderer.invoke("takeout:runPipeline", req),
   },
   dialog: {
     chooseFiles: () => ipcRenderer.invoke("dialog:chooseFiles"),

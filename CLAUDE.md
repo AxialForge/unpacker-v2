@@ -76,6 +76,8 @@ renderer/app.js --window.unpacker (preload, IPC invoke)--> main.js
                                                            ├─ analyze.js           enumerate inputs, classify by bucket, deflate probe, suggest()
                                                            ├─ chunker.js           bin-pack files under a size limit (deepest folders that fit stay whole)
                                                            ├─ manifest.js          8-char ID, render/parse manifest, streaming SHA-256
+                                                           ├─ organize.js          Takeout tree -> per-service libraries (Photos dates/EXIF/YearMonth/dedupe)
+                                                           ├─ exif.js              minimal JPEG EXIF DateTimeOriginal writer (insert or overwrite in place)
                                                            ├─ scan.js              scanFolder / collectArchives (shared by mass convert, mass extract, nested)
                                                            ├─ groups.js            GroupRegistry: mass-extract batches, sequential run, after-all hook, report
                                                            ├─ safety.js            traversal, bomb ratio, long paths, uniquePath, safeFileName
@@ -200,6 +202,25 @@ Nothing else needs to change: the renderer reads `targets` from `app:info`.
   `Hard Link =` and the `L` attribute into `entry.link`; `inspect` refuses
   unless `settings.allowLinks`. Our own tar files carry links because we add
   with `-snl`, so this bites on round-trips too. That is intended.
+- **Real Takeout part names carry a set number.** Google writes
+  `takeout-<stamp>-2-001.zip` for multi-set exports, and browsers add
+  ` (1)` on a re-download. The first regex only matched `-001.zip` and would
+  have found nothing in a real download folder. `PART_RX` handles both;
+  `groupTakeout` keys by stamp+set and folds re-downloads into `duplicates`.
+- **One sidecar can serve several files.** `IMG-edited.JPG` uses
+  `IMG.JPG`'s sidecar, so disposing the sidecar per file crashed on the second
+  use. Sidecars are collected in a Map and disposed once after the loop.
+- **Sidecars whose media isn't there are normal.** Media and its JSON often
+  sit in different parts; the organizer must run on the fully merged tree,
+  and "orphan sidecars" in the report usually means a part is missing.
+- **`--screenshot` (or any dev launch) silently does nothing.** A packaged
+  `Unpacker V2.exe` was still running, hidden in the tray, and the
+  single-instance lock handed the new launch's argv to it and quit. Dev and
+  packaged builds share the lock. `tasklist | findstr /i "electron Unpacker"`
+  before wondering why nothing happens.
+- **`hidden` did not hide a tab pane.** `.layout { display: grid }` outranks
+  the UA `[hidden] { display: none }`, so both tabs rendered at once.
+  `styles.css` now has `[hidden] { display: none !important }`; keep it.
 - **`.gitignore` ignores `*.exe`.** `vendor/7zip/*.exe|*.dll` are explicitly
   un-ignored at the bottom; don't move those lines above the `*.exe` rule.
 

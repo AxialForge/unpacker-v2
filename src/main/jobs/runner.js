@@ -52,6 +52,8 @@ class Runner {
         return this.pack(job, ctx);
       case "verify-manifest":
         return this.verifyManifest(job, ctx);
+      case "organize":
+        return require("../organize").run(path.resolve(job.inputs[0]), job.options, ctx, { trash: this.trash });
       default:
         throw new Error(`Unknown job kind: ${job.kind}`);
     }

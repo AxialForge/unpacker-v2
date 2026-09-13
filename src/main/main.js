@@ -299,6 +299,71 @@ function registerIpc() {
   ipcMain.handle("groups:list", () => groups.list());
   ipcMain.handle("groups:cancel", (_e, id) => groups.cancel(id));
   ipcMain.handle("groups:remove", (_e, id) => groups.remove(id));
+  // Takeout wizard: what is at these paths? Part archives (grouped into exports)
+  // and/or already-extracted Takeout trees with their services.
+  ipcMain.handle("takeout:discover", async (_e, inputs) => {
+    const organize = require("./organize");
+    const files = [];
+    const folders = [];
+    for (const raw of inputs || []) {
+      const p = path.resolve(String(raw));
+      let st;
+      try {
+        st = await fsp.stat(p);
+      } catch {
+        continue;
+      }
+      if (st.isDirectory()) {
+        folders.push(p);
+        for (const n of await fsp.readdir(p)) if (takeout.isTakeoutPart(n)) files.push(path.join(p, n));
+      } else if (takeout.isTakeoutPart(p)) files.push(p);
+    }
+    const sizes = new Map();
+    for (const f of files) sizes.set(f, (await fsp.stat(f)).size);
+    const exports = takeout.groupTakeout(files, (f) => sizes.get(f) || 0);
+    const trees = [];
+    const seen = new Set();
+    for (const f of folders) {
+      for (const r of organize.findTakeoutRoots(f)) {
+        if (seen.has(r.toLowerCase())) continue;
+        seen.add(r.toLowerCase());
+        trees.push({ root: r, services: organize.discoverServices([r]) });
+      }
+    }
+    return { exports, trees, folder: folders[0] || (files[0] ? path.dirname(files[0]) : null) };
+  });
+  ipcMain.handle("takeout:runPipeline", (_e, { exports = [], trees = [], extract = {}, organize = null }) => {
+    const jobs = { extract: [], organize: [] };
+    const groupId = `tk${Date.now().toString(36)}`;
+    const dest = extract.dest ? path.resolve(extract.dest) : null;
+    let last = null;
+    for (const ex of exports) {
+      const parts = ex.parts.map((p) => (typeof p === "string" ? p : p.path));
+      if (!parts.length) continue;
+      const exDest = dest || path.join(path.dirname(parts[0]), "Takeout-merged");
+      const j = queue.add({
+        kind: "takeout",
+        label: `Takeout ${ex.date || ""}${ex.set ? ` set ${ex.set}` : ""} (${parts.length} part${parts.length === 1 ? "" : "s"})`,
+        inputs: parts,
+        options: { ...extract, dest: exDest, flatten: false, tidyJson: false },
+        groupId,
+        sequential: true,
+      });
+      jobs.extract.push(j.id);
+      last = { id: j.id, dest: exDest };
+    }
+    if (organize && organize.enabled) {
+      if (last) {
+        const j = queue.add({ kind: "organize", label: "Organize Takeout into libraries", inputs: [last.dest], options: organize, groupId, sequential: true, after: last.id });
+        jobs.organize.push(j.id);
+      }
+      for (const root of trees) {
+        const j = queue.add({ kind: "organize", label: `Organize ${path.basename(path.dirname(root)) || root}`, inputs: [root], options: organize, groupId, sequential: true });
+        jobs.organize.push(j.id);
+      }
+    }
+    return jobs;
+  });
   ipcMain.handle("takeout:defaultDest", (_e, partPath) => path.join(path.dirname(path.resolve(partPath)), "Takeout-merged"));
   ipcMain.handle("takeout:start", (_e, { exports = [], options = {} }) => {
     const added = [];
@@ -544,6 +609,9 @@ async function runScreenshots(outDir) {
   await shot("06-mass-convert");
   open("settings", []);
   await shot("07-settings");
+  open("takeoutTab", [tk]);
+  await shot("08-takeout-tab");
+  open("archivesTab", []);
   fs.rmSync(work, { recursive: true, force: true });
   console.log(`screenshots written to ${outDir}`);
   app.quit();

@@ -9,13 +9,16 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const PART_RX = /^takeout-(\d{8}T\d{6}Z)-(\d{3})\.(zip|tgz|tar\.gz)$/i;
+// takeout-20260912T140102Z-001.zip            (single export)
+// takeout-20260912T132526Z-2-001.zip          (multi-set export: "-<set>-")
+// takeout-20260912T132526Z-2-028 (1).zip      (browser re-download of the same part)
+const PART_RX = /^takeout-(\d{8}T\d{6}Z)-(?:(\d+)-)?(\d{3})(?: \((\d+)\))?\.(zip|tgz|tar\.gz)$/i;
 
-/** { stamp, index, format } for a Takeout part file name, else null. */
+/** { stamp, set, index, copy, format } for a Takeout part file name, else null. */
 function parseTakeoutName(filePath) {
   const m = PART_RX.exec(path.basename(String(filePath || "")));
   if (!m) return null;
-  return { stamp: m[1], index: parseInt(m[2], 10), format: m[3].toLowerCase() === "zip" ? "zip" : "tgz" };
+  return { stamp: m[1], set: m[2] ? parseInt(m[2], 10) : 0, index: parseInt(m[3], 10), copy: m[4] ? parseInt(m[4], 10) : 0, format: m[5].toLowerCase() === "zip" ? "zip" : "tgz" };
 }
 
 const isTakeoutPart = (p) => parseTakeoutName(p) != null;
@@ -31,12 +34,26 @@ function groupTakeout(paths, sizeOf = () => 0) {
   for (const p of paths || []) {
     const info = parseTakeoutName(p);
     if (!info) continue;
-    const key = `${info.stamp}-${info.format}`;
-    if (!byStamp.has(key)) byStamp.set(key, { id: key, stamp: info.stamp, date: stampToDate(info.stamp), format: info.format, parts: [], missing: [], totalBytes: 0 });
+    const key = `${info.stamp}-${info.set}-${info.format}`;
+    if (!byStamp.has(key)) byStamp.set(key, { id: key, stamp: info.stamp, set: info.set, date: stampToDate(info.stamp), format: info.format, parts: [], missing: [], duplicates: [], totalBytes: 0 });
     const g = byStamp.get(key);
-    if (g.parts.some((x) => x.index === info.index)) continue; // same part twice (e.g. copy in a subfolder)
     const size = sizeOf(p) || 0;
-    g.parts.push({ path: p, index: info.index, size });
+    const existing = g.parts.find((x) => x.index === info.index);
+    if (existing) {
+      // Same part twice: a "(1)" re-download or a copy in a subfolder. Prefer
+      // the un-suffixed file; keep the other on the duplicates list so the UI
+      // can say it will be ignored. If sizes differ, one download is damaged;
+      // the verify step will say which.
+      const keepNew = existing.copy > info.copy;
+      const loser = keepNew ? { ...existing } : { path: p, index: info.index, size, copy: info.copy };
+      if (keepNew) {
+        g.totalBytes += size - existing.size;
+        Object.assign(existing, { path: p, size, copy: info.copy });
+      }
+      g.duplicates.push({ path: loser.path, index: info.index, size: loser.size, sameSize: loser.size === (keepNew ? size : existing.size) });
+      continue;
+    }
+    g.parts.push({ path: p, index: info.index, size, copy: info.copy });
     g.totalBytes += size;
   }
   const out = [];
@@ -46,7 +63,7 @@ function groupTakeout(paths, sizeOf = () => 0) {
     for (let i = 1; i <= last; i += 1) if (!g.parts.some((p) => p.index === i)) g.missing.push(i);
     out.push(g);
   }
-  return out.sort((a, b) => (a.stamp < b.stamp ? 1 : -1));
+  return out.sort((a, b) => (a.stamp !== b.stamp ? (a.stamp < b.stamp ? 1 : -1) : a.set - b.set));
 }
 
 /** "20260912T140102Z" -> "2026-09-12 14:01 UTC" */
