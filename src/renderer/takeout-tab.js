@@ -206,8 +206,15 @@
       if (st === "cancelled" && !failed) failed = j;
     }
     if (active) {
-      $("wzStage").textContent = active.file || active.stage;
+      const elapsed = active.startedAt ? fmtElapsed(Date.now() - active.startedAt) : "";
+      $("wzStage").textContent = `${active.stage} · ${Math.round(active.progress)}%${elapsed ? ` · ${elapsed}` : ""}${active.file ? `\n${active.file}` : ""}`;
       $("wzBar").style.width = `${active.progress}%`;
+      // no progress change for a while: pulse the bar so it doesn't read as frozen
+      if (state.lastProgress !== active.progress) {
+        state.lastProgress = active.progress;
+        state.lastProgressAt = Date.now();
+      }
+      $("wzBar").classList.toggle("stalled", Date.now() - (state.lastProgressAt || 0) > 4000);
     }
     if (state.step === 3 && (allDone || failed)) finish(allDone ? null : failed);
   }
@@ -274,7 +281,17 @@
     api.jobs.onChange(() => {
       if (state.step === 3) renderRail();
     });
+    setInterval(() => {
+      if (state.step === 3) renderRail();
+    }, 1000);
     go(1);
+  }
+
+  function fmtElapsed(ms) {
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    return m < 60 ? `${m}m ${s % 60}s` : `${Math.floor(m / 60)}h ${m % 60}m`;
   }
 
   window.takeoutTab = { onDrop: (paths) => discover(paths), wire };

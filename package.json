@@ -1,7 +1,7 @@
 {
   "name": "unpacker-v2",
   "productName": "Unpacker V2",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Drag-and-drop Windows archiver: create, extract, test and mass-convert ZIP/ZIP64, 7z, tar.* and more, with RAR extraction, built on the 7-Zip engine.",
   "main": "src/main/main.js",
   "author": "AxialForge",

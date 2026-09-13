@@ -177,15 +177,20 @@ async function moveFile(src, dst) {
 /** Merge folder `from` into `to` (rename what can be renamed, recurse into existing dirs). */
 async function mergeDir(from, to, stats) {
   fs.mkdirSync(to, { recursive: true });
+  const tick = (name) => {
+    if (stats.onFile) stats.onFile(stats.files, name);
+  };
   for (const e of fs.readdirSync(from, { withFileTypes: true })) {
     const s = path.join(from, e.name);
     const d = path.join(to, e.name);
+    if (stats.abort) stats.abort();
     if (e.isDirectory()) {
       if (fs.existsSync(d)) await mergeDir(s, d, stats);
       else {
         try {
           await fsp.rename(s, d);
           stats.files += countFiles(d);
+          tick(e.name);
         } catch (err) {
           if (err.code !== "EXDEV") throw err;
           await mergeDir(s, d, stats);
@@ -194,6 +199,7 @@ async function mergeDir(from, to, stats) {
     } else {
       await moveFile(s, d);
       stats.files += 1;
+      tick(e.name);
     }
   }
   try {
@@ -239,7 +245,7 @@ async function run(root, options = {}, ctx, deps = {}) {
   // ── Google Photos ──
   const photoDirs = roots.map((r) => path.join(r, "Google Photos")).filter((p) => fs.existsSync(p));
   if (o.photos.enabled && photoDirs.length) {
-    ctx.stage("Photos: scanning");
+    ctx.stage("Photos: finding albums");
     const albums = []; // { name, dir, isYear }
     for (const pd of photoDirs) {
       for (const e of fs.readdirSync(pd, { withFileTypes: true })) {
@@ -250,7 +256,12 @@ async function run(root, options = {}, ctx, deps = {}) {
     // Year folders first: their copy is the one we keep when deduping.
     albums.sort((a, b) => Number(b.isYear) - Number(a.isYear) || a.name.localeCompare(b.name));
     const items = [];
+    ctx.stage(`Photos: scanning ${albums.length} folder${albums.length === 1 ? "" : "s"}`);
+    let scanned = 0;
     for (const a of albums) {
+      abort();
+      scanned += 1;
+      ctx.progress({ percent: (scanned / albums.length) * 5, file: a.name });
       const names = fs.readdirSync(a.dir);
       const jsons = names.filter((n) => /\.json$/i.test(n));
       const used = new Set();
@@ -278,7 +289,8 @@ async function run(root, options = {}, ctx, deps = {}) {
     for (const it of items) {
       abort();
       done += 1;
-      ctx.progress({ percent: (done / items.length) * 85, file: it.name });
+      if (done === 1 || done % 250 === 0) ctx.stage(`Photos: placing ${done.toLocaleString()} of ${items.length.toLocaleString()}${o.photos.dedupe ? " (hashing for duplicates)" : ""}`);
+      ctx.progress({ percent: 5 + (done / items.length) * 75, file: it.name });
       let meta = null;
       if (it.sidecar) {
         try {
@@ -353,8 +365,17 @@ async function run(root, options = {}, ctx, deps = {}) {
       }
       if (it.sidecar) sidecarsUsed.set(it.sidecar, it.album.name);
     }
-    ctx.stage("Photos: sidecars");
-    for (const [sc, album] of sidecarsUsed) if (fs.existsSync(sc)) await disposeSidecar(sc, album, o, library, report, trash);
+    ctx.stage(`Photos: filing ${sidecarsUsed.size.toLocaleString()} JSON sidecars`);
+    let sc0 = 0;
+    for (const [sc, album] of sidecarsUsed) {
+      sc0 += 1;
+      if (sc0 % 50 === 0) {
+        abort();
+        ctx.progress({ percent: 80 + (sc0 / sidecarsUsed.size) * 5, file: path.basename(sc) });
+      }
+      if (fs.existsSync(sc)) await disposeSidecar(sc, album, o, library, report, trash);
+    }
+    ctx.progress({ percent: 85 });
     // album index
     if (albumIndex.size) {
       const out = [];
@@ -373,14 +394,21 @@ async function run(root, options = {}, ctx, deps = {}) {
   if (o.services.enabled) {
     const skip = new Set((o.services.skip || []).map((s) => s.toLowerCase()));
     const seen = new Set();
+    let serviceIdx = 0;
+    let serviceCount = 0;
+    for (const r of roots) for (const e of fs.readdirSync(r, { withFileTypes: true })) if (e.isDirectory() && !/^google photos$/i.test(e.name) && !skip.has(e.name.toLowerCase())) serviceCount += 1;
     for (const r of roots) {
       for (const e of fs.readdirSync(r, { withFileTypes: true })) {
         abort();
         if (!e.isDirectory() || /^google photos$/i.test(e.name) || skip.has(e.name.toLowerCase())) continue;
         const from = path.join(r, e.name);
         const to = path.join(library, e.name);
-        ctx.stage(`${e.name}: moving`);
-        const stats = { files: 0 };
+        const expected = folderStats(from).files || 1;
+        ctx.stage(`${e.name}: moving ${expected.toLocaleString()} files`);
+        const base = 85 + (serviceIdx / Math.max(1, serviceCount)) * 15;
+        const span = 15 / Math.max(1, serviceCount);
+        serviceIdx += 1;
+        const stats = { files: 0, abort, onFile: (n, name) => ctx.progress({ percent: base + (Math.min(n, expected) / expected) * span, file: name }) };
         await mergeDir(from, to, stats);
         const entry = report.services.find((s) => s.name === e.name) || { name: e.name, files: 0 };
         if (!seen.has(e.name)) {

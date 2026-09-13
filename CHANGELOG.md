@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-09-13
+
+### Fixed
+
+- Takeout wizard, Run step: the Organize phase reported progress only while
+  placing photos, so scanning a large library, filing sidecars and moving
+  Drive/Mail looked frozen. Every phase now reports a percentage and the
+  current file, the stage line shows elapsed time, and the bar pulses when
+  nothing has changed for a few seconds.
+
 ## [0.2.2] - 2026-09-13
 
 ### Added

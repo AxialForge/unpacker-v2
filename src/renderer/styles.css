@@ -355,6 +355,25 @@ table.kv td:first-child {
   width: 0;
   transition: width 0.15s;
 }
+.bar.big > i.stalled {
+  background: repeating-linear-gradient(90deg, var(--accent) 0 12px, var(--accent2) 12px 24px);
+  background-size: 48px 100%;
+  animation: barmove 1s linear infinite;
+}
+@keyframes barmove {
+  to {
+    background-position: 48px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar.big > i.stalled {
+    animation: none;
+  }
+}
+#wzStage {
+  white-space: pre-wrap;
+  min-height: 2.6em;
+}
 .wz-summary {
   background: var(--bg2);
   border: 1px solid var(--line);
