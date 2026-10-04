@@ -221,6 +221,17 @@ Nothing else needs to change: the renderer reads `targets` from `app:info`.
 - **`hidden` did not hide a tab pane.** `.layout { display: grid }` outranks
   the UA `[hidden] { display: none }`, so both tabs rendered at once.
   `styles.css` now has `[hidden] { display: none !important }`; keep it.
+- **Snapchat's JSON has no file id.** `json/memories_history.json` lists
+  Date, type and position but nothing that names a file, and the file names
+  carry only the day. The link is the file's timestamp inside the zip, which
+  equals the record's Date to the second (958 of 958 on a real export).
+  7-Zip restores it on extraction, so `snapchat.organize` matches on
+  (modified time, type). Anything that extracts without preserving
+  timestamps, or touches the files before organising, breaks the match; the
+  fallback is the day in the name at noon and no position. Verified only on a
+  Memories-only export: a full account export adds `json/*.json` sections
+  that are currently moved untouched to `Account data`, and the multi-part
+  name `mydata~<id>-N.zip` is an assumption until one is seen.
 - **`.gitignore` ignores `*.exe`.** `vendor/7zip/*.exe|*.dll` are explicitly
   un-ignored at the bottom; don't move those lines above the `*.exe` rule.
 

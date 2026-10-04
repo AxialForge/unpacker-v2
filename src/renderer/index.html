@@ -16,6 +16,7 @@
       <nav class="nav" id="tabs">
         <button class="nav-item on" data-tab="archives"><span class="ico">▣</span>Archives</button>
         <button class="nav-item" data-tab="takeout"><span class="ico">G</span>Google Takeout</button>
+        <button class="nav-item" data-tab="snapchat"><span class="ico">S</span>Snapchat</button>
         <button class="nav-item" data-tab="settings"><span class="ico">⚙</span>Settings</button>
         <button class="nav-item" data-tab="about"><span class="ico">ⓘ</span>About</button>
       </nav>
@@ -119,6 +120,90 @@
         <button id="wzBack" class="btn ghost" hidden>Back</button>
         <span class="muted" id="wzHint"></span>
         <button id="wzNext" class="btn accent" disabled>Next</button>
+      </div>
+    </main>
+
+    <main id="tabSnapchat" class="wizard" hidden>
+      <ol class="wz-steps" id="scSteps">
+        <li data-step="1" class="on"><span>1</span>Select</li>
+        <li data-step="2"><span>2</span>Options</li>
+        <li data-step="3"><span>3</span>Run</li>
+        <li data-step="4"><span>4</span>Done</li>
+      </ol>
+
+      <section class="wz-page" data-sc-page="1">
+        <h2>Your Snapchat data</h2>
+        <p class="muted">Drop the <span class="mono">mydata~….zip</span> files Snapchat sent you (Settings → My Data), or the folder they are in. A folder you already extracted works too.</p>
+        <div class="dropzone small"><div class="drop-inner"><div class="drop-icon">⤓</div><div class="drop-title">Drop Snapchat export files or a folder here</div></div></div>
+        <div class="btn-row">
+          <button id="scPickFiles" class="btn accent">Choose the download folder…</button>
+          <button id="scPickFolder" class="btn">Choose an extracted export folder…</button>
+        </div>
+        <div id="scFound" class="wz-found"></div>
+        <div class="grid2" id="scDestRow" hidden>
+          <label class="span2">
+            <span>Extract the export into</span>
+            <div class="inline"><input id="scDest" type="text" /><button id="scDestBrowse" class="btn small">choose…</button></div>
+          </label>
+        </div>
+      </section>
+
+      <section class="wz-page" data-sc-page="2" hidden>
+        <h2>Options</h2>
+        <div class="wz-cols">
+          <div class="panel" id="scExtractPanel">
+            <div class="panel-title">Extracting</div>
+            <div class="checks">
+              <label class="check"><input type="checkbox" id="scVerify" checked /> Check every download for damage first</label>
+              <label class="check"><input type="checkbox" id="scTrashParts" /> Recycle-Bin the downloaded files when everything succeeded</label>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Memories library</div>
+            <label><span class="muted">Library folder</span>
+              <div class="inline"><input id="scLibrary" type="text" placeholder="(inside the extracted folder)" /><button id="scLibraryBrowse" class="btn small">choose…</button></div>
+            </label>
+            <div class="checks">
+              <label class="check"><input type="checkbox" id="scYearMonth" checked /> Sort into Year/Month folders</label>
+              <label class="check"><input type="checkbox" id="scRename" checked /> Rename files to the time they were taken <span class="muted">(2024-07-01_153045.jpg)</span></label>
+              <label class="check"><input type="checkbox" id="scDates" checked /> Set each file's date to the time it was taken</label>
+              <label class="check"><input type="checkbox" id="scExif" checked /> Write the taken time into each photo (EXIF)</label>
+              <label class="check"><input type="checkbox" id="scGps" checked /> Write the place into each photo (EXIF position) when Snapchat recorded one</label>
+            </div>
+            <label><span class="muted">Overlays (captions and stickers saved as separate pictures)</span>
+              <select id="scOverlays">
+                <option value="beside">Keep each next to its photo or video</option>
+                <option value="folder">Move them into an Overlays folder</option>
+                <option value="leave">Leave them in the extracted folder</option>
+              </select>
+            </label>
+            <p class="muted">Videos get the right file date; a position is not written into video files yet. Everything else in the export (chat, friends, profile and so on) is kept untouched in an “Account data” folder.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="wz-page" data-sc-page="3" hidden>
+        <h2>Running</h2>
+        <ol class="wz-rail" id="scRail"></ol>
+        <p id="scStage" class="muted mono"></p>
+        <div class="bar big"><i id="scBar"></i></div>
+        <div class="btn-row"><button id="scCancel" class="btn">Cancel</button></div>
+      </section>
+
+      <section class="wz-page" data-sc-page="4" hidden>
+        <h2 id="scDoneTitle">Done</h2>
+        <pre id="scSummary" class="wz-summary"></pre>
+        <div class="btn-row">
+          <button id="scOpenLibrary" class="btn accent">Open the library</button>
+          <button id="scOpenReport" class="btn">Open the report</button>
+          <button id="scAgain" class="btn">Start another</button>
+        </div>
+      </section>
+
+      <div class="wz-nav">
+        <button id="scBack" class="btn ghost" hidden>Back</button>
+        <span class="muted" id="scHint"></span>
+        <button id="scNext" class="btn accent" disabled>Next</button>
       </div>
     </main>
 
@@ -504,5 +589,6 @@
 
     <script src="app.js"></script>
     <script src="takeout-tab.js"></script>
+    <script src="snapchat-tab.js"></script>
   </body>
 </html>

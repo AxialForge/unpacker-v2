@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Snapchat page (scaffold): a four-step wizard for Snapchat "My Data"
+  exports (`mydata~<id>[-N].zip`). Extracts the parts, then builds a
+  Memories library: Year/Month folders, files renamed to the time taken,
+  file dates set, EXIF taken time and position written into photos, overlays
+  kept with their photo or video, a `Memories index.csv`, and a
+  `Missing memories.csv` listing memories Snapchat lists but did not deliver.
+  Other export sections are kept untouched in `Account data`. Dropping
+  Snapchat parts in Auto mode opens the page.
+- EXIF writer can now write a GPS position (JPEG without an existing EXIF
+  block).
+
 ## [0.2.3] - 2026-09-13
 
 ### Fixed

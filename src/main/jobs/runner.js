@@ -52,6 +52,8 @@ class Runner {
         return this.pack(job, ctx);
       case "verify-manifest":
         return this.verifyManifest(job, ctx);
+      case "snapchat":
+        return this.snapchat(job, ctx);
       case "organize":
         return require("../organize").run(path.resolve(job.inputs[0]), job.options, ctx, { trash: this.trash });
       default:
@@ -795,6 +797,64 @@ class Runner {
       throw new EngineError({ kind: "corrupt", message: `${issues.length} problem(s), see ${path.basename(report)}: ${issues.slice(0, 3).join("; ")}${issues.length > 3 ? "; …" : ""}` }, "");
     }
     return { output: report };
+  }
+
+  /**
+   * Snapchat "My Data" export -> library.
+   * inputs: the part zips (mydata~<id>[-N].zip), or ONE already-extracted folder
+   * (options.extracted). options: { dest, verifyFirst, trashParts, organize:{…} }
+   * Extraction keeps each file's timestamp, which is what links a memory to
+   * its record in memories_history.json (see snapchat.js).
+   */
+  async snapchat(job, ctx) {
+    const snapchat = require("../snapchat");
+    const o = job.options;
+    let stage;
+    if (o.extracted) {
+      stage = path.resolve(job.inputs[0]);
+    } else {
+      const parts = job.inputs.map((p) => path.resolve(p));
+      stage = path.resolve(o.dest);
+      fs.mkdirSync(stage, { recursive: true });
+      this.warnCloud(parts, ctx);
+      const sizes = await Promise.all(parts.map(async (p) => (await fsp.stat(p)).size));
+      const total = sizes.reduce((a, b) => a + b, 0) || 1;
+      let base = 0;
+      if (o.verifyFirst) {
+        let acc = 0;
+        for (let i = 0; i < parts.length; i += 1) {
+          ctx.stage(`Checking download ${i + 1} of ${parts.length}`);
+          try {
+            await this.sevenZip.test(parts[i], { signal: ctx.signal, onProgress: scale(ctx, (acc / total) * 15, ((acc + sizes[i]) / total) * 15) });
+          } catch (err) {
+            throw new EngineError({ kind: err.kind || "corrupt", message: `${path.basename(parts[i])} failed its integrity check (${err.message}). Download that part again from Snapchat, then run again.` }, err.output);
+          }
+          acc += sizes[i];
+        }
+        base = 15;
+      }
+      let need = 0;
+      for (const p of parts) {
+        ctx.stage("Measuring the export");
+        const listing = await this.inspect(p, o, ctx);
+        need += listing.totals.size;
+      }
+      await this.ensureSpace(stage, need + 64 * 1024 * 1024, "the Snapchat export");
+      let acc = 0;
+      for (let i = 0; i < parts.length; i += 1) {
+        ctx.stage(`Extracting ${path.basename(parts[i])} (${i + 1} of ${parts.length})`);
+        await this.sevenZip.extract(parts[i], stage, { overwrite: "skip", signal: ctx.signal, onProgress: scale(ctx, base + (acc / total) * (55 - base), base + ((acc + sizes[i]) / total) * (55 - base)), onWarning: (m) => ctx.warn(`${path.basename(parts[i])}: ${m}`) });
+        acc += sizes[i];
+      }
+    }
+    const from = o.extracted ? 0 : 55;
+    const sub = { ...ctx, progress: ({ percent, file }) => ctx.progress({ percent: from + ((100 - from) * (percent || 0)) / 100, file }) };
+    const result = await snapchat.organize(stage, o.organize || {}, sub);
+    if (!o.extracted && o.trashParts) {
+      ctx.stage("Moving the downloaded parts to the Recycle Bin");
+      for (const p of job.inputs) await this.trash(path.resolve(p));
+    }
+    return { output: result.output };
   }
 
   async test(job, ctx) {

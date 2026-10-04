@@ -42,6 +42,12 @@ contextBridge.exposeInMainWorld("unpacker", {
     remove: (id) => ipcRenderer.invoke("groups:remove", id),
     onChange: (cb) => on("groups:change", cb),
   },
+  snapchat: {
+    // files/folders -> { exports:[{id, parts, missing, duplicates, totalBytes, peek}], folders:[{root}], folder }
+    discover: (paths) => ipcRenderer.invoke("snapchat:discover", paths),
+    // { exports, folders, extract:{dest, verifyFirst, trashParts}, organize:{…} } -> { jobs:[id] }
+    run: (req) => ipcRenderer.invoke("snapchat:run", req),
+  },
   takeout: {
     // scan(paths|folders) -> exports grouped by timestamp with sizes and gaps
     scan: (paths) => ipcRenderer.invoke("takeout:scan", paths),

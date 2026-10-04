@@ -186,6 +186,27 @@ The organizer also understands the mess a browser leaves: several per-part
 folders each holding a `Takeout/`, next to a half-merged one. Point it at the
 parent and all of them are gathered.
 
+## The Snapchat page
+
+For the export Snapchat sends from Settings → My Data (`mydata~….zip`).
+Drop the files or their folder on the Snapchat page, check what was found,
+choose the options and press Start.
+
+- Memories are sorted into `Snapchat Library/Memories/YYYY/MM` and renamed
+  to the time they were taken (`2024-07-01_153045.jpg`).
+- Each photo gets its taken time and, when Snapchat recorded one, its place
+  written into the file (EXIF). Videos get the right file date only.
+- Overlays (captions and stickers Snapchat saves as separate pictures) stay
+  next to their photo or video, go to an `Overlays` folder, or are left alone.
+- `Memories index.csv` lists every file with its time and place.
+  `Missing memories.csv` lists memories Snapchat's own list mentions but did
+  not include; that usually means the export has more parts to download.
+- Everything else in the export is kept untouched under `Account data`.
+
+Times are Coordinated Universal Time, as Snapchat records them. This page is
+new: it has been checked against a Memories export; other sections of a full
+account export are kept but not yet organised.
+
 ## The Google Takeout dialog (quick merge)
 
 The older *Google Takeout…* button on the Archives tab merges parts without

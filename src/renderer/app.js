@@ -91,7 +91,7 @@ function fillSelect(sel, items, map) {
   }
 }
 
-const PAGES = { archives: ["tabArchives", "Archives"], takeout: ["tabTakeout", "Google Takeout"], settings: ["pageSettings", "Settings"], about: ["pageAbout", "About"] };
+const PAGES = { archives: ["tabArchives", "Archives"], takeout: ["tabTakeout", "Google Takeout"], snapchat: ["tabSnapchat", "Snapchat"], settings: ["pageSettings", "Settings"], about: ["pageAbout", "About"] };
 function showTab(name) {
   if (!PAGES[name]) name = "archives";
   document.body.dataset.tab = name;
@@ -194,6 +194,7 @@ function wireUi() {
     dz.classList.remove("over");
     const paths = [...(e.dataTransfer.files || [])].map((f) => api.pathForFile(f)).filter(Boolean);
     if (document.body.dataset.tab === "takeout" && window.takeoutTab) return window.takeoutTab.onDrop(paths);
+    if (document.body.dataset.tab === "snapchat" && window.snapchatTab) return window.snapchatTab.onDrop(paths);
     submitPaths(paths);
   });
 
@@ -668,7 +669,10 @@ function fmtBytes(n) {
 }
 
 async function handleCliRequest({ type, paths }) {
-  if (type === "takeout") {
+  if (type === "snapchat") {
+    showTab("snapchat");
+    if (window.snapchatTab) window.snapchatTab.onDrop(paths);
+  } else if (type === "takeout") {
     openTakeoutModal(paths);
   } else if (type === "extract-all") {
     openMassExtractModal(paths);

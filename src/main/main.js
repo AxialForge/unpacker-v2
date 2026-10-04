@@ -164,6 +164,11 @@ async function addPaths({ paths = [], action = "auto", options = {} }) {
 
   // Dropping Takeout parts in Auto mode opens the Takeout dialog instead of
   // extracting each part on its own: the parts belong together.
+  // Snapchat "My Data" parts open the Snapchat page for the same reason.
+  if (action === "auto" && paths.length && paths.every((p) => require("./snapchat").isSnapchatPart(p))) {
+    if (mainWindow) mainWindow.webContents.send("cli:request", { type: "snapchat", paths: paths.map((p) => path.resolve(String(p))) });
+    return { added: [], skipped: [], snapchat: true };
+  }
   if (action === "auto" && paths.length && paths.every((p) => takeout.isTakeoutPart(p))) {
     if (mainWindow) mainWindow.webContents.send("cli:request", { type: "takeout", paths: paths.map((p) => path.resolve(String(p))) });
     return { added: [], skipped: [], takeout: true };
@@ -363,6 +368,61 @@ function registerIpc() {
       }
     }
     return jobs;
+  });
+  // Snapchat wizard: find "mydata~<id>[-N].zip" parts and already-extracted export folders.
+  ipcMain.handle("snapchat:discover", async (_e, inputs) => {
+    const snapchat = require("./snapchat");
+    const files = [];
+    const folders = [];
+    for (const raw of inputs || []) {
+      const p = path.resolve(String(raw));
+      let st;
+      try {
+        st = await fsp.stat(p);
+      } catch {
+        continue;
+      }
+      if (st.isDirectory()) {
+        if (snapchat.isExportFolder(p)) folders.push({ root: p });
+        for (const n of await fsp.readdir(p)) if (snapchat.isSnapchatPart(n)) files.push(path.join(p, n));
+      } else if (snapchat.isSnapchatPart(p)) files.push(p);
+    }
+    const sizes = new Map();
+    for (const f of files) sizes.set(f, (await fsp.stat(f)).size);
+    const exports = snapchat.groupExports(files, (f) => sizes.get(f) || 0);
+    // a quick look inside each part: how many memories, overlays and data sections
+    for (const ex of exports) {
+      ex.peek = { photos: 0, videos: 0, overlays: 0, sections: [] };
+      for (const part of ex.parts) {
+        try {
+          const listing = await engine.list(part.path);
+          for (const e of listing.entries) {
+            const name = e.path.replace(/\\/g, "/");
+            const m = snapchat.MEDIA_RX.exec(name.split("/").pop());
+            if (name.startsWith("memories/") && m) {
+              if (m[3] === "overlay") ex.peek.overlays += 1;
+              else if (/^(mp4|mov)$/i.test(m[4])) ex.peek.videos += 1;
+              else ex.peek.photos += 1;
+            } else if (/^json\/[^/]+\.json$/i.test(name) && !ex.peek.sections.includes(name.slice(5, -5))) ex.peek.sections.push(name.slice(5, -5));
+          }
+        } catch (err) {
+          ex.peek.error = err.message;
+        }
+      }
+    }
+    const first = files[0] || (folders[0] && folders[0].root) || null;
+    return { exports, folders, folder: first ? (files[0] ? path.dirname(first) : first) : null };
+  });
+  ipcMain.handle("snapchat:run", (_e, { exports = [], folders = [], extract = {}, organize = {} }) => {
+    const jobs = [];
+    for (const ex of exports) {
+      const parts = ex.parts.map((p) => (typeof p === "string" ? p : p.path));
+      if (!parts.length) continue;
+      const dest = extract.dest ? path.resolve(extract.dest) : path.join(path.dirname(parts[0]), "Snapchat-export");
+      jobs.push(queue.add({ kind: "snapchat", label: `Snapchat export (${parts.length} part${parts.length === 1 ? "" : "s"})`, inputs: parts, options: { dest: exports.length > 1 ? path.join(dest, ex.id) : dest, verifyFirst: !!extract.verifyFirst, trashParts: !!extract.trashParts, organize } }).id);
+    }
+    for (const root of folders) jobs.push(queue.add({ kind: "snapchat", label: `Snapchat export folder ${path.basename(root)}`, inputs: [root], options: { extracted: true, organize } }).id);
+    return { jobs };
   });
   ipcMain.handle("takeout:defaultDest", (_e, partPath) => path.join(path.dirname(path.resolve(partPath)), "Takeout-merged"));
   ipcMain.handle("takeout:start", (_e, { exports = [], options = {} }) => {

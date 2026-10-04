@@ -112,10 +112,97 @@ function buildExifSegment(dateStr) {
 }
 
 /**
- * Set DateTimeOriginal/Digitized in a JPEG buffer.
- * @returns {{ buf: Buffer, written: boolean, reason?: string, mode?: "insert"|"overwrite" }}
+ * Same as buildExifSegment, plus a GPS IFD (version, latitude, longitude).
+ * Layout (big-endian TIFF, offsets from the TIFF header):
+ *     8  IFD0: 2 entries (ExifIFD pointer, GPS IFD pointer)      -> 38
+ *    38  Exif IFD: DateTimeOriginal, DateTimeDigitized           -> 68
+ *    68  the two 20-byte date strings                            -> 108
+ *   108  GPS IFD: 5 entries                                      -> 174
+ *   174  latitude (3 rationals), 198 longitude (3 rationals)     -> 222
  */
-function setDateTaken(buf, date) {
+function buildExifSegmentWithGps(dateStr, gps) {
+  const value = Buffer.from(`${dateStr}\0`, "ascii");
+  const t = Buffer.alloc(222);
+  t.write("MM", 0, "ascii");
+  t.writeUInt16BE(0x2a, 2);
+  t.writeUInt32BE(8, 4);
+  const entry = (at, tag, type, count) => {
+    t.writeUInt16BE(tag, at);
+    t.writeUInt16BE(type, at + 2);
+    t.writeUInt32BE(count, at + 4);
+    return at + 8; // where the value / offset goes
+  };
+  t.writeUInt16BE(2, 8);
+  t.writeUInt32BE(38, entry(10, 0x8769, 4, 1)); // ExifIFD pointer
+  t.writeUInt32BE(108, entry(22, 0x8825, 4, 1)); // GPS IFD pointer
+  t.writeUInt32BE(0, 34);
+  t.writeUInt16BE(2, 38);
+  t.writeUInt32BE(68, entry(40, 0x9003, 2, 20));
+  t.writeUInt32BE(88, entry(52, 0x9004, 2, 20));
+  t.writeUInt32BE(0, 64);
+  value.copy(t, 68);
+  value.copy(t, 88);
+  t.writeUInt16BE(5, 108);
+  Buffer.from([2, 3, 0, 0]).copy(t, entry(110, 0x0000, 1, 4)); // GPSVersionID 2.3.0.0
+  t.write(gps.lat < 0 ? "S" : "N", entry(122, 0x0001, 2, 2), "ascii");
+  t.writeUInt32BE(174, entry(134, 0x0002, 5, 3));
+  t.write(gps.lon < 0 ? "W" : "E", entry(146, 0x0003, 2, 2), "ascii");
+  t.writeUInt32BE(198, entry(158, 0x0004, 5, 3));
+  t.writeUInt32BE(0, 170);
+  const dms = (deg, at) => {
+    const a = Math.abs(deg);
+    const d = Math.floor(a);
+    const mFloat = (a - d) * 60;
+    const m = Math.floor(mFloat);
+    const s = Math.round((mFloat - m) * 60 * 10000);
+    for (const [i, [num, den]] of [[d, 1], [m, 1], [s, 10000]].entries()) {
+      t.writeUInt32BE(num, at + i * 8);
+      t.writeUInt32BE(den, at + i * 8 + 4);
+    }
+  };
+  dms(gps.lat, 174);
+  dms(gps.lon, 198);
+  const body = Buffer.concat([Buffer.from("Exif\0\0", "ascii"), t]);
+  const head = Buffer.alloc(4);
+  head.writeUInt16BE(0xffe1, 0);
+  head.writeUInt16BE(body.length + 2, 2);
+  return Buffer.concat([head, body]);
+}
+
+/** Read back a GPS position written by this module (or any standard one). null when absent. */
+function getGps(buf) {
+  if (!isJpeg(buf)) return null;
+  const app1 = segments(buf).find((s) => s.marker === 0xe1 && buf.toString("ascii", s.start + 4, s.start + 10) === "Exif\0\0");
+  if (!app1) return null;
+  const tiff = app1.start + 10;
+  const le = buf.toString("ascii", tiff, tiff + 2) === "II";
+  const u16 = (o) => (le ? buf.readUInt16LE(o) : buf.readUInt16BE(o));
+  const u32 = (o) => (le ? buf.readUInt32LE(o) : buf.readUInt32BE(o));
+  const read = (off) => {
+    const out = new Map();
+    const n = u16(off);
+    for (let k = 0; k < n; k += 1) out.set(u16(off + 2 + k * 12), off + 2 + k * 12);
+    return out;
+  };
+  const ifd0 = read(tiff + u32(tiff + 4));
+  if (!ifd0.has(0x8825)) return null;
+  const g = read(tiff + u32(ifd0.get(0x8825) + 8));
+  if (!g.has(2) || !g.has(4)) return null;
+  const rat = (e) => {
+    const o = tiff + u32(e + 8);
+    return [0, 1, 2].map((i) => u32(o + i * 8) / (u32(o + i * 8 + 4) || 1));
+  };
+  const dec = ([d, m, s], ref) => (d + m / 60 + s / 3600) * (ref === "S" || ref === "W" ? -1 : 1);
+  return { lat: dec(rat(g.get(2)), String.fromCharCode(buf[g.get(1) + 8])), lon: dec(rat(g.get(4)), String.fromCharCode(buf[g.get(3) + 8])) };
+}
+
+/**
+ * Set DateTimeOriginal/Digitized in a JPEG buffer.
+ * opts.gps = { lat, lon } also writes a position, but only when the file has
+ * no Exif block yet (adding an IFD to an existing block is out of scope).
+ * @returns {{ buf: Buffer, written: boolean, gps?: boolean, reason?: string, mode?: "insert"|"overwrite" }}
+ */
+function setDateTaken(buf, date, opts = {}) {
   if (!isJpeg(buf)) return { buf, written: false, reason: "not a JPEG" };
   const dateStr = exifDate(date);
   const segs = segments(buf);
@@ -124,8 +211,9 @@ function setDateTaken(buf, date) {
     // Insert after SOI (and after a JFIF APP0 if present, which spec-wise should come first).
     const app0 = segs.find((s) => s.marker === 0xe0);
     const at = app0 ? app0.start + app0.length : 2;
-    const out = Buffer.concat([buf.subarray(0, at), buildExifSegment(dateStr), buf.subarray(at)]);
-    return { buf: out, written: true, mode: "insert" };
+    const seg = opts.gps ? buildExifSegmentWithGps(dateStr, opts.gps) : buildExifSegment(dateStr);
+    const out = Buffer.concat([buf.subarray(0, at), seg, buf.subarray(at)]);
+    return { buf: out, written: true, mode: "insert", gps: !!opts.gps };
   }
   const found = findDateTags(buf, app1);
   if (!found) return { buf, written: false, reason: "unreadable Exif" };
@@ -146,4 +234,4 @@ function getDateTaken(buf) {
   return off ? buf.toString("ascii", off, off + 19) : null;
 }
 
-module.exports = { isJpeg, exifDate, setDateTaken, getDateTaken, segments };
+module.exports = { isJpeg, exifDate, setDateTaken, getDateTaken, getGps, segments };
