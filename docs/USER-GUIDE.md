@@ -207,6 +207,22 @@ Times are Coordinated Universal Time, as Snapchat records them. This page is
 new: it has been checked against a Memories export; other sections of a full
 account export are kept but not yet organised.
 
+## The export log
+
+Mass extract, the Google Takeout wizard and the Snapchat page each have a
+tick box “Write an export log at the top”. It adds two files to the result
+and moves nothing:
+
+- `What's in here.txt` — a summary you can read in half a minute: how many
+  files and how much space, what each top folder holds (photos, videos,
+  audio, documents, archives, other) and its date range, which archives were
+  extracted and which failed, and where the source archives went.
+- `Contents.csv` — every file with its folder, size, date, kind and the
+  archive it came from. Open it in Excel to search or filter.
+
+In Mass extract the box ticks itself when more than five archives are
+selected. The batch card gets a “What's in here” button when the log exists.
+
 ## The Google Takeout dialog (quick merge)
 
 The older *Google Takeout…* button on the Archives tab merges parts without

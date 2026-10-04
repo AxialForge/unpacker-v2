@@ -76,6 +76,8 @@ renderer/app.js --window.unpacker (preload, IPC invoke)--> main.js
                                                            ├─ analyze.js           enumerate inputs, classify by bucket, deflate probe, suggest()
                                                            ├─ chunker.js           bin-pack files under a size limit (deepest folders that fit stay whole)
                                                            ├─ manifest.js          8-char ID, render/parse manifest, streaming SHA-256
+                                                           ├─ snapchat.js          Snapchat My Data: part grouping, record matching by zip timestamp, Memories library
+                                                           ├─ exportlog.js         optional "What's in here.txt" + Contents.csv; describes, never moves
                                                            ├─ organize.js          Takeout tree -> per-service libraries (Photos dates/EXIF/YearMonth/dedupe)
                                                            ├─ exif.js              minimal JPEG EXIF DateTimeOriginal writer (insert or overwrite in place)
                                                            ├─ scan.js              scanFolder / collectArchives (shared by mass convert, mass extract, nested)

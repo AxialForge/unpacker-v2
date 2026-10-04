@@ -16,6 +16,12 @@ All notable changes to this project are documented here. The format follows
   `Missing memories.csv` listing memories Snapchat lists but did not deliver.
   Other export sections are kept untouched in `Account data`. Dropping
   Snapchat parts in Auto mode opens the page.
+- Export log (optional): `What's in here.txt` (a short summary: counts and
+  sizes per folder, kinds of files, which archives failed, where the sources
+  went) and `Contents.csv` (every file with folder, size, date, kind and
+  source archive), written at the top of a Mass extract, Google Takeout or
+  Snapchat result. Folders are left exactly as the archives had them. Ticked
+  automatically in Mass extract for more than five archives.
 - EXIF writer can now write a GPS position (JPEG without an existing EXIF
   block).
 

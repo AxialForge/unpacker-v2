@@ -328,6 +328,16 @@ async function organize(stage, options = {}, ctx) {
   ];
   const reportPath = path.join(library, "Snapchat library report.txt");
   fs.writeFileSync(reportPath, `${lines.join("\r\n")}\r\n`, "utf8");
+  if (o.exportLog) {
+    ctx.stage("Writing the export log");
+    require("./exportlog").write({
+      dir: library,
+      title: "Snapchat library",
+      roots: [{ path: library, source: "Snapchat My Data" }],
+      notes: [`${rep.media} memories: ${rep.photos} photos and ${rep.videos} videos; ${rep.withLocation} with a place.`, rep.missingRecords ? `${rep.missingRecords} memories are listed by Snapchat but were not in the export (see "Memories/Missing memories.csv").` : "Every memory Snapchat lists is here.", 'Details are in "Snapchat library report.txt".'],
+      skip: new Set([reportPath.toLowerCase()]),
+    });
+  }
   ctx.progress({ percent: 100 });
   return { output: library, summary: rep, report: reportPath };
 }

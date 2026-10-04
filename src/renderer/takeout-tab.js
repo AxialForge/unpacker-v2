@@ -152,6 +152,7 @@
       library: $("wzLibrary").value.trim(),
       photos: { enabled: $("wzPhotos").checked, dates: $("wzDates").checked, exif: $("wzExif").checked, yearMonth: $("wzYearMonth").checked, dedupe: $("wzDedupe").checked, sidecars: $("wzSidecars").value },
       services: { enabled: $("wzServices").checked, skip },
+      exportLog: $("wzLog").checked,
     };
   }
 

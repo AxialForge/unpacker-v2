@@ -94,6 +94,7 @@
               <label class="check"><input type="checkbox" id="wzServices" checked /> Move Drive, Mail, Contacts, Calendar, YouTube and everything else into the library, one folder per service</label>
               <div id="wzServiceList" class="wz-services"></div>
             </div>
+            <label class="check"><input type="checkbox" id="wzLog" checked /> Write an export log at the top: <span class="mono">What's in here.txt</span> (a short summary) and <span class="mono">Contents.csv</span> (every file). Folders are left as they are.</label>
           </div>
         </div>
       </section>
@@ -169,6 +170,7 @@
               <label class="check"><input type="checkbox" id="scDates" checked /> Set each file's date to the time it was taken</label>
               <label class="check"><input type="checkbox" id="scExif" checked /> Write the taken time into each photo (EXIF)</label>
               <label class="check"><input type="checkbox" id="scGps" checked /> Write the place into each photo (EXIF position) when Snapchat recorded one</label>
+              <label class="check"><input type="checkbox" id="scLog" checked /> Write an export log at the top: <span class="mono">What's in here.txt</span> (a short summary) and <span class="mono">Contents.csv</span> (every file). Folders are left as they are.</label>
             </div>
             <label><span class="muted">Overlays (captions and stickers saved as separate pictures)</span>
               <select id="scOverlays">
@@ -441,6 +443,7 @@
             </select>
           </label>
           <label class="check"><input type="checkbox" id="meSequential" checked /> One archive at a time <span class="muted">(they share a disk; parallel only thrashes it)</span></label>
+          <label class="check"><input type="checkbox" id="meLog" /> Write an export log at the top: <span class="mono">What's in here.txt</span> (a short summary) and <span class="mono">Contents.csv</span> (every file). Folders are left as they are. <span class="muted">(ticked automatically for more than five archives)</span></label>
         </div>
         <div class="modal-actions">
           <button id="meCancel" class="btn ghost">Cancel</button>

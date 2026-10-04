@@ -40,7 +40,7 @@ class GroupRegistry extends EventEmitter {
 
   /**
    * @param {string[]} paths archive entry points
-   * @param {object} options { destMode:"own"|"merge"|"here", mergeDir, overwrite, nested, password, sourcesAfter:"keep"|"trash"|"archival", sequential }
+   * @param {object} options { destMode:"own"|"merge"|"here", mergeDir, overwrite, nested, password, sourcesAfter:"keep"|"trash"|"archival", sequential, exportLog }
    */
   start(paths, options = {}) {
     this.seq += 1;
@@ -95,6 +95,7 @@ class GroupRegistry extends EventEmitter {
       report: g.report,
       mergeDir: g.options.mergeDir,
       archivalDir: g.archivalDir || null,
+      exportLog: g.exportLog || null,
     };
   }
 
@@ -162,6 +163,7 @@ class GroupRegistry extends EventEmitter {
         if (after === "trash") lines.push("", `moved ${n} source file(s) to the Recycle Bin`);
         else {
           g.archivalDir = [...archDirs][0] || null;
+          g.archivalDirs = [...archDirs];
           lines.push("", `moved ${n} source file(s) into ${[...archDirs].join(", ")}`);
         }
       } else {
@@ -175,6 +177,33 @@ class GroupRegistry extends EventEmitter {
       fs.writeFileSync(g.report, `${lines.join("\n")}\n`, "utf8");
     } catch {
       g.report = null;
+    }
+    // Optional export log: describe what is there without moving anything.
+    if (g.options.exportLog) {
+      try {
+        const top = [...g.jobIds].map((jid) => this.queue.get(jid)).filter((j) => j && !j.depth);
+        const roots = top.filter((j) => j.state === "done" && j.output).map((j) => ({ path: j.output, source: path.basename(j.inputs[0]) }));
+        const mode = g.options.destMode || "own";
+        const notes = [];
+        if (mode === "here") notes.push("Contents were extracted next to the archives, so this log lists everything in the folder, including files that were already there.");
+        if (g.archivalDir) notes.push(`The source archives were moved to "${path.relative(dir, g.archivalDir) || g.archivalDir}".`);
+        else if ((g.options.sourcesAfter || "keep") === "trash" && s.allOk) notes.push("The source archives were moved to the Recycle Bin.");
+        else notes.push("The source archives were left where they were.");
+        const skip = new Set(g.sources.flatMap((src) => volumeSiblings(src)).map((p) => p.toLowerCase()));
+        if (g.report) skip.add(g.report.toLowerCase());
+        const log = require("./exportlog").write({
+          dir,
+          title: `${path.basename(dir)} - extracted archives`,
+          roots: roots.length ? roots : [{ path: dir }],
+          skipDirs: g.archivalDirs || [],
+          sources: top.map((j) => ({ name: path.basename(j.inputs[0]), state: j.state, output: j.output, error: j.error })),
+          notes,
+          skip,
+        });
+        g.exportLog = log.summary;
+      } catch {
+        g.exportLog = null;
+      }
     }
   }
 }

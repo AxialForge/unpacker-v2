@@ -524,6 +524,7 @@ async function openMassExtractModal(inputs) {
   const r = await api.massExtract.scan(inputs);
   if (!r.items.length) return notice("No archives found there.", "warn");
   mePaths = r.items.map((i) => i.path);
+  $("meLog").checked = mePaths.length > 5;
   const types = Object.entries(r.byType)
     .sort((a, b) => b[1] - a[1])
     .map(([t, n]) => `${n} ${t}`)
@@ -547,6 +548,7 @@ async function startMassExtract() {
       password: $("mePassword").value || undefined,
       sourcesAfter: $("meSources").value,
       sequential: $("meSequential").checked,
+      exportLog: $("meLog").checked,
     },
   });
   if (r.added.length) notice(`Extracting ${r.added.length} archive${r.added.length === 1 ? "" : "s"}${$("meSequential").checked ? ", one at a time" : ""}.`, "ok");
@@ -590,6 +592,7 @@ function upsertGroup(g) {
     actions.appendChild(b);
   };
   if (!g.finished) btn("Cancel remaining", () => api.groups.cancel(g.id));
+  if (g.finished && g.exportLog) btn("What's in here", () => api.shell.openPath(g.exportLog));
   if (g.finished && g.report) btn("Report", () => api.shell.openPath(g.report));
   if (g.finished && g.mergeDir) btn("Open folder", () => api.shell.openPath(g.mergeDir));
   if (g.finished && g.archivalDir) btn("Open archival folder", () => api.shell.openPath(g.archivalDir));

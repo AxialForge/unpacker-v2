@@ -437,6 +437,16 @@ async function run(root, options = {}, ctx, deps = {}) {
   ];
   const reportPath = path.join(library, "Takeout-organize-report.txt");
   fs.writeFileSync(reportPath, `${out.join("\n")}\n`, "utf8");
+  if (o.exportLog) {
+    ctx.stage("Writing the export log");
+    require("./exportlog").write({
+      dir: library,
+      title: "Google Takeout library",
+      roots: [{ path: library, source: "Google Takeout" }],
+      notes: [`${p.moved} photos and videos placed; ${p.duplicates} duplicates removed; ${p.dated} dated from Google's records.`, ...report.services.map((s) => `${s.name}: ${s.files} files.`), 'Details are in "Takeout-organize-report.txt".'],
+      skip: new Set([reportPath.toLowerCase()]),
+    });
+  }
   return { output: library, summary: report, report: reportPath };
 }
 
