@@ -19,7 +19,7 @@
     $("scNext").hidden = n === 4;
     $("scNext").textContent = n === 2 ? "Start" : "Next";
     $("scNext").disabled = n === 3 || (n === 1 && !any());
-    $("scHint").textContent = n === 1 && !state.found ? "Nothing selected yet." : n === 2 ? "Nothing is written until you press Start." : "";
+    $("scHint").textContent = n === 1 ? (state.found ? state.combineNote || "" : "Nothing selected yet.") : n === 2 ? "Nothing is written until you press Start." : "";
   }
 
   async function discover(paths) {
@@ -30,6 +30,7 @@
     state.picked.folders = new Set(r.folders.map((f) => f.root));
     render();
     $("scDestRow").hidden = !r.exports.length;
+    state.combineNote = r.exports.length > 1 ? "Several exports of one account: they are combined into one folder and one library." : "";
     if (r.exports.length) $("scDest").value = `${r.folder}\\Snapchat-export`;
     if (!r.exports.length && !r.folders.length) notice("No Snapchat export found there. The files are named like mydata~1790635398407.zip.", "warn", 12000);
     go(1);

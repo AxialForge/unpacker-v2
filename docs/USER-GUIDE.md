@@ -201,11 +201,18 @@ choose the options and press Start.
 - `Memories index.csv` lists every file with its time and place.
   `Missing memories.csv` lists memories Snapchat's own list mentions but did
   not include; that usually means the export has more parts to download.
-- Everything else in the export is kept untouched under `Account data`.
+- A full account export is organised as well: `Chats/<name>/Chat with
+  <name>.txt` (a readable transcript) and `Chats/All chats.csv`; chat
+  pictures and videos under the conversation that mentions them, or under
+  `Chats/Media/YYYY/MM` when no message does; `Snaps/Snap log.csv`;
+  `Friends/*.csv`; `Stories/*.csv`; `Location/*.csv`; and every other
+  section as readable text in `Account data`, with the original files kept
+  underneath.
+- Several exports of one account (Snapchat sends Memories separately from
+  the rest) can be dropped together: they are combined into one folder and
+  one library, and their memory lists are merged.
 
-Times are Coordinated Universal Time, as Snapchat records them. This page is
-new: it has been checked against a Memories export; other sections of a full
-account export are kept but not yet organised.
+Times are Coordinated Universal Time, as Snapchat records them.
 
 ## The export log
 

@@ -240,6 +240,8 @@ function extractArgs(archive, outDir, o = {}) {
   const ow = { overwrite: "-aoa", skip: "-aos", rename: "-aou", renameExisting: "-aot" }[o.overwrite || "rename"];
   const args = ["x", archive, `-o${outDir}`, ow, passwordArg(o.password)];
   if (o.type && o.type !== "auto" && o.type !== "split") args.push(`-t${o.type}`);
+  // only: extract just these entries (7-Zip wildcards, e.g. "json\\*")
+  if (o.only && o.only.length) args.push("--", ...o.only);
   return args;
 }
 

@@ -16,6 +16,14 @@ All notable changes to this project are documented here. The format follows
   `Missing memories.csv` listing memories Snapchat lists but did not deliver.
   Other export sections are kept untouched in `Account data`. Dropping
   Snapchat parts in Auto mode opens the page.
+- Snapchat: several exports of one account (for example a Memories-only export
+  and a full account export) are combined into one folder and one library;
+  their memory lists are merged. The full account export is organised too:
+  a readable transcript per chat plus `All chats.csv`, chat pictures and
+  videos placed with their conversation when a message names them (otherwise
+  by date), a snap log, friend lists, story views and location history as
+  spreadsheets, and every other section as readable text in `Account data`
+  with the originals kept.
 - Export log (optional): `What's in here.txt` (a short summary: counts and
   sizes per folder, kinds of files, which archives failed, where the sources
   went) and `Contents.csv` (every file with folder, size, date, kind and

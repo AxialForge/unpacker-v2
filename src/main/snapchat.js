@@ -136,7 +136,7 @@ function stamp(t) {
 
 /** Is this folder an extracted Snapchat export? */
 function isExportFolder(dir) {
-  return fs.existsSync(path.join(dir, "json", "memories_history.json")) || (fs.existsSync(path.join(dir, "memories")) && fs.existsSync(path.join(dir, "index.html")));
+  return fs.existsSync(path.join(dir, "json")) && (fs.existsSync(path.join(dir, "memories")) || fs.existsSync(path.join(dir, "chat_media")) || fs.existsSync(path.join(dir, "index.html")));
 }
 
 async function moveFile(src, dst) {
@@ -180,12 +180,16 @@ async function organize(stage, options = {}, ctx) {
   // records
   ctx.stage("Snapchat: reading the memories list");
   let records = [];
-  const histFile = path.join(stage, "json", "memories_history.json");
-  if (fs.existsSync(histFile)) {
-    try {
-      records = parseHistory(JSON.parse(fs.readFileSync(histFile, "utf8")));
-    } catch (err) {
-      ctx.warn(`memories_history.json could not be read (${err.message}); dates fall back to the file names.`);
+  const account = require("./snapchat-account");
+  const copies = account.loadSection(stage, "memories_history", (m) => ctx.warn(`${m}; dates fall back to the file names.`));
+  if (copies.length) {
+    const seen = new Set();
+    for (const r of copies.flatMap(parseHistory)) {
+      const k = `${r.time}|${r.type}|${r.gps ? r.gps.lat + "," + r.gps.lon : ""}`;
+      if (!seen.has(k)) {
+        seen.add(k);
+        records.push(r);
+      }
     }
   } else ctx.warn("No json/memories_history.json in this export; dates fall back to the file names and no positions are available.");
 
@@ -285,16 +289,9 @@ async function organize(stage, options = {}, ctx) {
   ctx.stage("Snapchat: filing the rest of the export");
   ctx.progress({ percent: 93 });
   const dataOut = path.join(library, "Account data");
-  for (const name of ["json", "html"]) {
-    const d = path.join(stage, name);
-    if (!fs.existsSync(d)) continue;
-    for (const f of fs.readdirSync(d)) {
-      if (name === "json") rep.otherSections.push(f.replace(/\.json$/i, ""));
-      await moveFile(path.join(d, f), path.join(dataOut, name, f));
-    }
-    fs.rmdirSync(d);
-  }
-  for (const f of ["index.html", path.join("memories", "memories.html")]) if (fs.existsSync(path.join(stage, f))) await moveFile(path.join(stage, f), path.join(dataOut, path.basename(f)));
+  if (fs.existsSync(path.join(memDir, "memories.html"))) await moveFile(path.join(memDir, "memories.html"), path.join(dataOut, "memories.html"));
+  rep.account = await account.organizeAccount(stage, library, ctx, { moveFile });
+  rep.otherSections = rep.account.sections;
   try {
     fs.rmdirSync(memDir);
   } catch {
@@ -322,7 +319,9 @@ async function organize(stage, options = {}, ctx) {
     `  with a position: ${rep.withLocation}; dates set: ${rep.dated}; EXIF dates written: ${rep.exifWritten}; EXIF positions written: ${rep.gpsWritten}`,
     `  overlays: ${rep.overlays} paired, ${rep.orphanOverlays} without a photo (${o.overlays})`,
     `  listed by Snapchat but not in this export: ${rep.missingRecords}`,
-    `Account data sections kept untouched: ${rep.otherSections.length ? rep.otherSections.join(", ") : "none"}`,
+    `Chats: ${rep.account.conversations} conversations, ${rep.account.messages.toLocaleString("en-US")} messages, ${rep.account.chatMedia} pictures and videos (${rep.account.chatMediaLinked} placed with their conversation)`,
+    `Snaps logged: ${rep.account.snaps}; friend lists: ${rep.account.friendsLists}; story records: ${rep.account.stories}; location points: ${rep.account.locations}`,
+    `Account data sections (readable text + originals): ${rep.otherSections.length ? rep.otherSections.join(", ") : "none"}`,
     "",
     "Times are Coordinated Universal Time, as Snapchat records them.",
   ];

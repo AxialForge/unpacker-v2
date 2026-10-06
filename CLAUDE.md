@@ -77,6 +77,7 @@ renderer/app.js --window.unpacker (preload, IPC invoke)--> main.js
                                                            ├─ chunker.js           bin-pack files under a size limit (deepest folders that fit stay whole)
                                                            ├─ manifest.js          8-char ID, render/parse manifest, streaming SHA-256
                                                            ├─ snapchat.js          Snapchat My Data: part grouping, record matching by zip timestamp, Memories library
+                                                           ├─ snapchat-account.js  Snapchat chats, chat media, snaps, friends, stories, location; merges copies across exports
                                                            ├─ exportlog.js         optional "What's in here.txt" + Contents.csv; describes, never moves
                                                            ├─ organize.js          Takeout tree -> per-service libraries (Photos dates/EXIF/YearMonth/dedupe)
                                                            ├─ exif.js              minimal JPEG EXIF DateTimeOriginal writer (insert or overwrite in place)
@@ -230,10 +231,15 @@ Nothing else needs to change: the renderer reads `targets` from `app:info`.
   7-Zip restores it on extraction, so `snapchat.organize` matches on
   (modified time, type). Anything that extracts without preserving
   timestamps, or touches the files before organising, breaks the match; the
-  fallback is the day in the name at noon and no position. Verified only on a
-  Memories-only export: a full account export adds `json/*.json` sections
-  that are currently moved untouched to `Account data`, and the multi-part
-  name `mydata~<id>-N.zip` is an assumption until one is seen.
+  fallback is the day in the name at noon and no position. Verified on a
+  Memories-only export and a full account export of the same account, run
+  together (October 2026). Snapchat gives each export its own id, so two
+  exports of one account arrive as two zips; `snapchat:run` puts every
+  selected export into ONE job. Each part's `json/` is also extracted into
+  `_sections/<n>/` so overlapping copies of a section (both exports carry
+  `memories_history.json`, with different contents) can be merged by
+  `snapchat-account.js`. The multi-part name `mydata~<id>-N.zip` is still an
+  assumption until one is seen.
 - **`.gitignore` ignores `*.exe`.** `vendor/7zip/*.exe|*.dll` are explicitly
   un-ignored at the bottom; don't move those lines above the `*.exe` rule.
 

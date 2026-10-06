@@ -415,11 +415,12 @@ function registerIpc() {
   });
   ipcMain.handle("snapchat:run", (_e, { exports = [], folders = [], extract = {}, organize = {} }) => {
     const jobs = [];
-    for (const ex of exports) {
-      const parts = ex.parts.map((p) => (typeof p === "string" ? p : p.path));
-      if (!parts.length) continue;
+    // Every selected export is the same account (a memories-only export and a
+    // full one overlap), so all their parts go into ONE folder and ONE library.
+    const parts = exports.flatMap((ex) => ex.parts.map((p) => (typeof p === "string" ? p : p.path)));
+    if (parts.length) {
       const dest = extract.dest ? path.resolve(extract.dest) : path.join(path.dirname(parts[0]), "Snapchat-export");
-      jobs.push(queue.add({ kind: "snapchat", label: `Snapchat export (${parts.length} part${parts.length === 1 ? "" : "s"})`, inputs: parts, options: { dest: exports.length > 1 ? path.join(dest, ex.id) : dest, verifyFirst: !!extract.verifyFirst, trashParts: !!extract.trashParts, organize } }).id);
+      jobs.push(queue.add({ kind: "snapchat", label: `Snapchat: ${exports.length} export${exports.length === 1 ? "" : "s"}, ${parts.length} file${parts.length === 1 ? "" : "s"}`, inputs: parts, options: { dest, verifyFirst: !!extract.verifyFirst, trashParts: !!extract.trashParts, organize } }).id);
     }
     for (const root of folders) jobs.push(queue.add({ kind: "snapchat", label: `Snapchat export folder ${path.basename(root)}`, inputs: [root], options: { extracted: true, organize } }).id);
     return { jobs };

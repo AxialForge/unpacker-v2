@@ -843,6 +843,8 @@ class Runner {
       let acc = 0;
       for (let i = 0; i < parts.length; i += 1) {
         ctx.stage(`Extracting ${path.basename(parts[i])} (${i + 1} of ${parts.length})`);
+        // every part keeps its own copy of the json sections; the organiser merges them
+        await this.sevenZip.extract(parts[i], path.join(stage, "_sections", String(i + 1)), { overwrite: "overwrite", only: ["json\\*"], signal: ctx.signal, tolerateWarnings: true });
         await this.sevenZip.extract(parts[i], stage, { overwrite: "skip", signal: ctx.signal, onProgress: scale(ctx, base + (acc / total) * (55 - base), base + ((acc + sizes[i]) / total) * (55 - base)), onWarning: (m) => ctx.warn(`${path.basename(parts[i])}: ${m}`) });
         acc += sizes[i];
       }
