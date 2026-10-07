@@ -8,8 +8,7 @@ directories:
 
 files:
   - src/**/*
-  - assets/icon.png
-  - assets/tray.png
+  - assets/*.png
   - package.json
 
 # The 7-Zip engine must live OUTSIDE the asar so it can be spawned as a process.

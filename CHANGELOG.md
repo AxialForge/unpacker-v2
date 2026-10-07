@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.0] - 2026-10-06
 
 ### Added
 
@@ -32,6 +32,12 @@ All notable changes to this project are documented here. The format follows
   automatically in Mass extract for more than five archives.
 - EXIF writer can now write a GPS position (JPEG without an existing EXIF
   block).
+
+### Fixed
+
+- Installer packed only `icon.png` and `tray.png`, so the About and Settings
+  pages showed broken icons in the installed build; every `assets/*.png` is
+  packed now.
 
 ## [0.2.3] - 2026-09-13
 
