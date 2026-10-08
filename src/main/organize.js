@@ -23,6 +23,9 @@ const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
 const { hashFile } = require("./manifest");
+
+// Checkpoint for an interrupted organize run; lives in the library until the run finishes.
+const STATE_FILE = ".unpacker-organize.json";
 const exif = require("./exif");
 const safety = require("./safety");
 
@@ -242,6 +245,24 @@ async function run(root, options = {}, ctx, deps = {}) {
   const report = { library, roots, photos: { media: 0, moved: 0, dated: 0, exifWritten: 0, exifSkipped: 0, duplicates: 0, noSidecar: 0, orphanSidecars: 0, sidecarsMoved: 0, sidecarsRemoved: 0, albums: 0 }, services: [] };
   const lines = [];
 
+  // Resume: files already moved are simply gone from the source, so a rerun
+  // picks up where it stopped. What a rerun would LOSE is the in-memory
+  // state: the hashes of placed files (duplicates) and the album index.
+  // Both are checkpointed to a state file in the library and loaded back.
+  const stateFile = path.join(library, STATE_FILE);
+  let prior = null;
+  try {
+    prior = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+    if (prior.library !== library) prior = null;
+  } catch {
+    prior = null;
+  }
+  const resumed = !!prior;
+  if (prior) {
+    for (const k of Object.keys(report.photos)) report.photos[k] = (prior.photos && prior.photos[k]) || 0;
+    lines.push(`resumed an interrupted run (${prior.photos ? prior.photos.moved : 0} files were already placed)`);
+  }
+
   // ── Google Photos ──
   const photoDirs = roots.map((r) => path.join(r, "Google Photos")).filter((p) => fs.existsSync(p));
   if (o.photos.enabled && photoDirs.length) {
@@ -280,15 +301,27 @@ async function run(root, options = {}, ctx, deps = {}) {
         }
       }
     }
-    report.photos.media = items.length;
+    report.photos.media = items.length + (prior ? prior.photos.moved + prior.photos.duplicates : 0);
     const photosOut = path.join(library, "Photos");
-    const albumIndex = new Map(); // album name -> [library-relative paths]
-    const seenHash = new Map(); // sha256 -> library path
+    const albumIndex = new Map(prior ? Object.entries(prior.albums || {}) : []); // album name -> [library-relative paths]
+    const seenHash = new Map(prior ? Object.entries(prior.hashes || {}) : []); // sha256 -> library path
     const sidecarsUsed = new Map(); // sidecar path -> album name (one sidecar can serve several files)
+    const checkpoint = () => {
+      const hashes = {};
+      for (const [h, p] of seenHash) if (p) hashes[h] = p;
+      fs.writeFileSync(stateFile, JSON.stringify({ library, photos: report.photos, hashes, albums: Object.fromEntries(albumIndex) }));
+    };
+    if (resumed) ctx.stage(`Photos: resuming, ${items.length.toLocaleString()} still to place`);
     let done = 0;
     for (const it of items) {
-      abort();
+      try {
+        abort();
+      } catch (err) {
+        checkpoint();
+        throw err;
+      }
       done += 1;
+      if (done % 250 === 0) checkpoint();
       if (done === 1 || done % 250 === 0) ctx.stage(`Photos: placing ${done.toLocaleString()} of ${items.length.toLocaleString()}${o.photos.dedupe ? " (hashing for duplicates)" : ""}`);
       ctx.progress({ percent: 5 + (done / items.length) * 75, file: it.name });
       let meta = null;
@@ -365,6 +398,7 @@ async function run(root, options = {}, ctx, deps = {}) {
       }
       if (it.sidecar) sidecarsUsed.set(it.sidecar, it.album.name);
     }
+    checkpoint();
     ctx.stage(`Photos: filing ${sidecarsUsed.size.toLocaleString()} JSON sidecars`);
     let sc0 = 0;
     for (const [sc, album] of sidecarsUsed) {
@@ -437,6 +471,7 @@ async function run(root, options = {}, ctx, deps = {}) {
   ];
   const reportPath = path.join(library, "Takeout-organize-report.txt");
   fs.writeFileSync(reportPath, `${out.join("\n")}\n`, "utf8");
+  fs.rmSync(stateFile, { force: true }); // finished: nothing to resume
   if (o.exportLog) {
     ctx.stage("Writing the export log");
     require("./exportlog").write({
@@ -485,4 +520,4 @@ function removeEmptyDirs(dir) {
   return false;
 }
 
-module.exports = { run, findTakeoutRoots, discoverServices, matchSidecar, takenDate, yearMonth, DEFAULTS, MEDIA_EXT };
+module.exports = { run, findTakeoutRoots, discoverServices, matchSidecar, takenDate, yearMonth, DEFAULTS, MEDIA_EXT, STATE_FILE };

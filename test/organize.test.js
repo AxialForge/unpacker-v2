@@ -92,3 +92,42 @@ test("findTakeoutRoots handles wrapper, bare Takeout, and per-part folders", () 
     fs.rmSync(d, { recursive: true, force: true });
   }
 });
+
+test("organize resumes after a cancel: duplicates and the album index survive the restart", async () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "unp-org-resume-"));
+  try {
+    const gp = path.join(d, "Takeout", "Google Photos");
+    const mk = (rel, data) => {
+      const p = path.join(gp, rel);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, data);
+    };
+    // 6 photos in the year folder, 2 of them duplicated into an album
+    for (let i = 1; i <= 6; i += 1) {
+      mk(`Photos from 2020/p${i}.jpg`, Buffer.concat([jpeg(), Buffer.from(`photo ${i}`)]));
+      mk(`Photos from 2020/p${i}.jpg.json`, JSON.stringify({ photoTakenTime: { timestamp: String(1577836800 + i * 86400) } }));
+    }
+    mk("Trip/p1.jpg", Buffer.concat([jpeg(), Buffer.from("photo 1")]));
+    mk("Trip/p6.jpg", Buffer.concat([jpeg(), Buffer.from("photo 6")]));
+    const opts = { photos: { enabled: true, dedupe: true, yearMonth: true, exif: false, dates: false, sidecars: "remove" }, services: { enabled: false } };
+    // first run: cancel after 3 placements
+    const ac = new AbortController();
+    let placed = 0;
+    const ctx1 = { stage() {}, progress() { placed += 1; if (placed === 4) ac.abort(); }, signal: ac.signal };
+    await assert.rejects(org.run(d, opts, ctx1), /Cancelled/);
+    const lib = path.join(d, "Library");
+    assert.ok(fs.existsSync(path.join(lib, org.STATE_FILE)), "checkpoint written on cancel");
+    // second run completes
+    const r = await org.run(d, opts, { stage() {}, progress() {} });
+    assert.ok(!fs.existsSync(path.join(lib, org.STATE_FILE)), "checkpoint removed when done");
+    const p = r.summary.photos;
+    assert.equal(p.moved, 6, "every unique photo placed once across both runs");
+    assert.equal(p.duplicates, 2, "both album copies recognised as duplicates, even the one whose original moved in run 1");
+    const albums = fs.readFileSync(path.join(lib, "Photos", "Albums.txt"), "utf8");
+    assert.match(albums, /\[Trip\]\nPhotos\/2020\/01\/p1\.jpg\nPhotos\/2020\/01\/p6\.jpg/, "album index lists both copies");
+    assert.match(fs.readFileSync(r.report, "utf8"), /resumed an interrupted run/);
+    assert.ok(!fs.existsSync(path.join(gp, "Trip", "p1.jpg")) && !fs.existsSync(path.join(gp, "Trip", "p6.jpg")), "duplicates binned");
+  } finally {
+    fs.rmSync(d, { recursive: true, force: true });
+  }
+});
