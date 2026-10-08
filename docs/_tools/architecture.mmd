@@ -1,0 +1,73 @@
+flowchart TB
+  subgraph USER["Entry points"]
+    DROP["Drag and drop, buttons"]
+    EXPL["Explorer right-click entries<br/>(registry, current user)"]
+    CLI["Command line flags"]
+  end
+
+  subgraph RENDERER["Renderer process (sandboxed page, no Node access)"]
+    APP["app.js<br/>pages, dialogs, queue rows"]
+    WIZ["takeout-tab.js<br/>Google Takeout wizard"]
+    SNAPT["snapchat-tab.js<br/>Snapchat wizard"]
+    LIBT["library-tab.js<br/>Library page"]
+  end
+
+  PRELOAD["preload.js<br/>window.unpacker bridge"]
+
+  subgraph MAIN["Main process (Node)"]
+    MAINJS["main.js<br/>window, IPC handlers, tray, close question, sleep blocker"]
+    CLIJS["cli.js + single-instance lock"]
+    QUEUE["jobs/queue.js<br/>concurrency, cancel, retry, dependencies"]
+    GROUPS["groups.js<br/>mass-extract batches"]
+    RUNNER["jobs/runner.js<br/>compress, extract, convert, test,<br/>pack, takeout, verify-manifest"]
+    ORG["organize.js + exif.js<br/>Takeout libraries"]
+    SNAP["snapchat.js + snapchat-account.js<br/>Snapchat libraries"]
+    LIB["library.js + unp:// protocol<br/>read-only browsing"]
+    XLOG["exportlog.js"]
+    HELP["analyze.js, chunker.js, manifest.js,<br/>scan.js, takeout.js, safety.js, formats.js"]
+    ENGINE["engine/sevenzip.js<br/>spawn, progress, listing, errors"]
+    RAR["engine/rar.js<br/>optional WinRAR"]
+    STORE["store.js"]
+    SHELLI["shell-integration.js"]
+    UPD["updater.js"]
+  end
+
+  subgraph EXT["Outside the application"]
+    SEVENZ["7z.exe + 7z.dll (bundled)"]
+    WINRAR["Rar.exe (user's WinRAR, optional)"]
+    FS[("User files:<br/>archives, extracted folders,<br/>manifests, reports")]
+    SETTINGS[("settings.json<br/>%APPDATA%/Unpacker V2")]
+    TEMP[("Temporary folder<br/>UnpackerV2/job-id")]
+    REG[("Registry HKCU<br/>Software/Classes")]
+    GH["GitHub Releases<br/>latest.yml + installer"]
+    BIN["Recycle Bin"]
+  end
+
+  DROP --> APP
+  DROP --> WIZ
+  DROP --> SNAPT
+  DROP --> LIBT
+  SNAPT <--> PRELOAD
+  LIBT <--> PRELOAD
+  MAINJS --> LIB --> FS
+  EXPL --> CLI --> CLIJS --> MAINJS
+  APP <--> PRELOAD
+  WIZ <--> PRELOAD
+  PRELOAD <-->|"IPC invoke / events"| MAINJS
+  MAINJS --> QUEUE
+  MAINJS --> GROUPS --> QUEUE
+  QUEUE --> RUNNER
+  RUNNER --> ORG
+  RUNNER --> SNAP --> FS
+  RUNNER --> XLOG --> FS
+  RUNNER --> HELP
+  RUNNER --> ENGINE --> SEVENZ
+  RUNNER --> RAR --> WINRAR
+  SEVENZ --> FS
+  WINRAR --> FS
+  ORG --> FS
+  RUNNER --> TEMP
+  RUNNER --> BIN
+  MAINJS --> STORE --> SETTINGS
+  MAINJS --> SHELLI --> REG
+  MAINJS --> UPD -->|HTTPS| GH

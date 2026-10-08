@@ -1,0 +1,182 @@
+// Prose for USER_MANUAL that is not a per-control fact (those live in ui_spec.js).
+// Keyed by surface id: typical workflow, features, edge cases, messages.
+
+const surfaces = {
+  main_window: {
+    workflow: ["Start Unpacker V2 from the Start menu or the desktop shortcut.", "Pick a page in the sidebar. Archives is selected at start-up.", "Do the work on that page; every job you start appears in the queue on the Archives page, whichever page started it.", "Close the window when finished. If jobs are still running you are asked what to do."],
+    features: ["One window, six pages. There are no separate document windows.", "Only one copy of the application runs. Starting it again (for example from the Explorer right-click menu) brings the existing window forward and hands it the new request.", "Light and dark colour schemes (Settings, Theme).", "The window can be resized down to 760 by 520 pixels."],
+    edge: ["If the engine line reads “engine missing” in red, 7z.exe was not found. Every job fails with “7-Zip engine (7z.exe) not found. Reinstall Unpacker V2 or install 7-Zip.”", "The Awake badge only appears while jobs run and the sleep setting is on."],
+    messages: [],
+  },
+  archives_tools: {
+    workflow: ["Choose what should happen with the action selector. Leave it on Auto for everyday use.", "For compression, pick a format, level, optional split size and optional password. For extraction only the password matters.", "Drop files, folders or archives anywhere on the window, or use the buttons.", "With Smart compress ticked, a compress request opens the Smart compress dialog first. Otherwise the job starts immediately.", "Watch the job in the queue on the right."],
+    features: ["Auto mode decides per item: archives are extracted, everything else is compressed into one archive (or one each with “One archive per dropped item”).", "Dropping only Google Takeout part files in Auto mode opens the Google Takeout quick-merge dialog instead of extracting each part separately.", "Dropping three or more archives in Auto mode opens the Mass extract dialog.", "Format, level, split size, one-per-item, delete-original and the output choice are remembered between sessions. The password and the Smart compress tick box are not.", "New archives never overwrite an existing file: a number in brackets is added to the name."],
+    edge: ["Only the first volume of a split set is an archive entry point. Dropping .002, .part2.rar, .r00 or .z01 files is skipped with “part of a split set (opened from its first volume)”.", "A file or folder that is already an input of a waiting or running job is skipped with “already in the queue”.", "tar, tar.gz, tar.xz and tar.bz2 cannot be encrypted or split; the password and split choices are ignored for them.", "RAR appears in the format list only when WinRAR's Rar.exe is found in Program Files or on the PATH."],
+    messages: [
+      ["Skipped <name>: not an archive", "The action was Extract, Convert or Test and the item is not a recognised archive type.", "Use Compress, or check the file extension."],
+      ["Skipped <name>: not found", "The path no longer exists.", "Check the file was not moved."],
+      ["Skipped <name>: part of a split set (opened from its first volume)", "A continuation volume was dropped.", "Drop the first volume (.001, .part1.rar, .rar or .zip)."],
+      ["Skipped <name>: already in the queue", "The same input is already waiting or running.", "Wait for it, or cancel it first."],
+      ["Nothing to do.", "Nothing usable was submitted.", "Drop a file or folder."],
+      ["No archives found there. / No archives found in that folder.", "The folder scan found no archive entry points.", "Pick another folder."],
+    ],
+  },
+  archives_queue: {
+    workflow: ["Each job appears as a row the moment it is queued.", "At most “Jobs at the same time” jobs run together (default 2); the rest wait in order.", "While a job runs, the row shows the stage, a percentage, elapsed time and the file in progress.", "When it finishes, click the blue path to open the result in Explorer, or “✕” to remove the row.", "Use “Clear finished” in the title bar to remove all finished rows."],
+    features: ["States: Queued, running (with stage text), Done, Failed, Cancelled, Password needed.", "A job that finished with warnings is marked amber and lists them.", "Mass-extract batches get a summary card above the rows; nested archives found during the batch appear as rows whose name starts with “↳”.", "Cancel stops the engine immediately. Any half-written archive is deleted; archives that had already passed their integrity test are kept.", "Retry re-runs a failed or cancelled job with the same options.", "The queue lives in memory: it is empty again after the application is restarted."],
+    edge: ["Removing a row never deletes files.", "A job that depends on another (the Organize step after a Takeout extraction) shows “Skipped: … failed” and is cancelled if the first job fails."],
+    messages: [],
+  },
+  dialog_password: {
+    workflow: ["The dialog appears on its own when an encrypted archive needs a password.", "Type the password and press Enter or click Retry.", "If the password is wrong the dialog appears again.", "Click Skip to deal with it later; the job stays in the queue with an “Enter password” button."],
+    features: ["When several jobs need a password, the dialogs are shown one after another.", "The password is used for that job only and is never stored."],
+    edge: ["Archives with encrypted file names (7z and RAR with header encryption) ask before their contents can even be listed.", "ZIP archives show their file list without a password; the question comes when extraction starts."],
+    messages: [["This archive is password-protected.", "No password, or a wrong one, was given.", "Enter the correct password."]],
+  },
+  dialog_smart_compress: {
+    workflow: ["Drop files or a folder on the Archives page with Smart compress ticked.", "Wait a moment for the analysis; the summary and the suggestion appear.", "Pick a preset: Everyday, Archival, or Custom.", "Adjust any control if needed. Changing one switches the preset to Custom.", "Click Pack."],
+    features: ["Suggestion rules: 85 percent or more photos, video, audio or already-packed data → Store, in ZIP (in 7z when a password is set, because ZIP cannot hide file names). 60 percent or more text-like data, or a sample that compresses below half → 7z, solid. Mostly disk images or very large files → 7z, Fast. More than 5,000 small files → 7z. Anything else → 7z, Normal.", "For 7z the solid block size is capped (64 MB to 1 GB depending on the content) so one damaged block cannot spoil the whole archive.", "Independent archives keep the deepest folder that fits under the limit together.", "With a manifest, names look like `Album_K7M3Q9XZ-01of03.zip` and `Album_K7M3Q9XZ.manifest.txt`. The identifier avoids the look-alike characters 0, O, 1 and I.", "The manifest is copied to the output folder only after every archive has been written and tested."],
+    edge: ["A single file larger than the limit is packed as its own volume set, and the job shows a warning saying so.", "Independent archives need all inputs on one drive. Otherwise the job fails with “Independent chunks need all inputs on one drive. Use volumes, or pack each drive separately.”", "Inputs inside OneDrive, Google Drive, Dropbox or iCloud folders add a warning that cloud-only files download as they are read.", "If the analysis fails, the suggestion box shows “Analysis failed: …” and Pack stays disabled."],
+    messages: [
+      ["Nothing to pack: no files found.", "The inputs contain no files.", "Choose a folder that has files."],
+      ["Not enough free space for the new archives: needs about X, Y free on D:\\", "The output drive is too full.", "Free space or choose another output folder."],
+      ["RAR creation needs WinRAR installed.", "RAR was chosen but Rar.exe is not available.", "Install WinRAR or pick another format."],
+    ],
+  },
+  dialog_convert: {
+    workflow: ["Click “Mass convert a folder…” and choose a folder, or set the action to Convert and drop archives, or use the Explorer entry “Convert archive…”.", "Choose the target format and level.", "Optionally set a password for the new archives and a split size.", "Decide whether originals go to the Recycle Bin.", "Click Start. One job per archive is queued."],
+    features: ["Each conversion: read the listing, check safety and free space, extract to the temporary folder, repack, test the result, then optionally bin the original.", "Folder structure and file dates are preserved.", "A split source is removed as a whole set (every volume).", "RAR sources convert to any format; RAR as a target needs WinRAR."],
+    edge: ["The temporary folder needs room for the extracted contents. When it is on the same drive as the output, twice the extracted size is required.", "An encrypted source asks for its password per archive.", "A source whose contents are empty fails with “The source archive is empty.”"],
+    messages: [["Skipped N already in <format>.", "Archives already in the target format were left out.", "Untick “Skip archives already in the target format” to repack them anyway."], ["Not enough free space for conversion staging: …", "The temporary drive is too full.", "Set another temporary folder in Settings."]],
+  },
+  dialog_mass_extract: {
+    workflow: ["Click “Mass extract a folder…” and choose a folder; or drop three or more archives; or right-click a folder in Explorer and choose “Extract all archives in here…”.", "Read the summary line to confirm what was found.", "Choose where the contents go.", "Choose what to do with archives found inside the extracted files, and with the sources afterwards.", "Click Extract. A batch card appears at the top of the queue."],
+    features: ["The scan looks through all sub-folders (64 levels, 20,000 archives at most).", "Nested archives are queued as children of the batch and extracted next to themselves.", "The archival option moves the sources into `<folder name> - archival` inside the folder they were in, or inside the merge folder in merge mode.", "A `Mass-extract-report.txt` listing every archive and its outcome is written in the merge folder or beside the archives."],
+    edge: ["Sources are moved or binned only when every job of the batch, including nested ones, succeeded.", "In merge mode two archives containing the same path follow the “If a file already exists” choice.", "An archive needing a password pauses as “Password needed”; the batch is not finished until it is retried or cancelled."],
+    messages: [["sources kept: not every archive succeeded (in the report)", "At least one archive failed or was cancelled.", "Fix or remove the failing archive and run the batch again."]],
+  },
+  dialog_takeout: {
+    workflow: ["Click “Google Takeout…” and choose the downloads folder, or drop the part files.", "Check the list of exports and any red missing-part warning.", "Choose the destination and the options.", "Click Merge."],
+    features: ["Parts are processed strictly one at a time, in order.", "Free space for the whole export is checked before anything is written.", "A `Takeout-import-report.txt` is written in the destination.", "This dialog only merges. To also organise the result into libraries, use the Google Takeout page."],
+    edge: ["Only the chosen folder itself is scanned for parts, not its sub-folders.", "Both .zip and .tgz exports are supported."],
+    messages: [["<part> failed its integrity check (…). Re-download that part from Google, then run again; finished parts are skipped.", "A downloaded part is damaged or incomplete.", "Download that part again and re-run."], ["No Takeout parts found. They are named like takeout-20260912T140102Z-001.zip (or .tgz).", "The folder holds no files with Takeout part names.", "Choose the folder the browser saved them in."]],
+  },
+  takeout_step1: {
+    workflow: ["Open the Google Takeout page from the sidebar.", "Drop the downloaded parts or their folder, or use one of the two buttons.", "Review what was found; untick anything to leave out.", "Check the folder the parts will be extracted into.", "Click Next."],
+    features: ["Recognises `takeout-<date>-NNN.zip`, multi-set names `takeout-<date>-<set>-NNN.zip`, and .tgz parts.", "Missing part numbers are listed in red.", "Browser re-downloads such as “… (1).zip” are ignored in favour of the original; if the sizes differ the damage check decides which is good.", "An already-extracted folder is recognised whether it holds `Takeout/` directly or several per-part folders that each hold one."],
+    edge: ["You can continue with missing parts; run the wizard again after downloading them and finished parts are skipped."],
+    messages: [["No Takeout parts or Takeout folder found there. Parts are named like takeout-20260912T140102Z-001.zip.", "Nothing recognisable at the chosen location.", "Choose the downloads folder or the folder containing Takeout/."]],
+  },
+  takeout_step2: {
+    workflow: ["Left panel: decide how the parts are checked and extracted.", "Right panel: leave Organize ticked to build libraries, and choose the library folder.", "Choose the Google Photos options.", "Untick any other service you want left where it is.", "Click Start."],
+    features: ["Photos library layout: `Library/Photos/YYYY/MM/…`, `Library/Photos/Undated/…`, `Library/Photos/Albums.txt`, `Library/Photos/_json/<album>/…`.", "Other services: `Library/Drive/…`, `Library/Mail/…`, and so on, merged across all parts.", "Files are moved, not copied, when the library is on the same drive, which makes organising fast even for very large exports.", "Duplicates and unwanted sidecars go to the Recycle Bin; nothing is deleted outright.", "Sidecar matching follows Google's naming: `IMG.jpg.supplemental-metadata.json`, numbered copies `IMG(1).jpg`, edited copies `IMG-edited.jpg`, and shortened names."],
+    edge: ["Dates are written in Coordinated Universal Time as given by Google.", "A JPEG that already has a taken date in EXIF is not changed.", "A sidecar whose photo is missing (it is in a part you do not have) is counted and parked in `_json`."],
+    messages: [],
+  },
+  takeout_step3: {
+    workflow: ["Watch the rail: “Check and extract the parts”, then “Organize into libraries”.", "The stage line names the current phase, for example “Photos: placing 1,250 of 8,000 (hashing for duplicates)”.", "Leave it running. You can switch pages; the wizard keeps its place."],
+    features: ["Organise phases and their share of the bar: scanning folders 0–5 percent, placing photos 5–80, filing sidecars 80–85, moving other services 85–100.", "The PC is kept awake while jobs run (unless switched off in Settings)."],
+    edge: ["With duplicate removal on, every photo and video is read in full; on a hard disk this is the longest phase.", "Cancelling leaves already-placed files in the library and already-extracted parts on disk."],
+    messages: [["Nothing to do: no parts to extract and organizing is off.", "Start was pressed with nothing selected to do.", "Go back and tick Organize or select parts."]],
+  },
+  takeout_step4: {
+    workflow: ["Read the summary.", "Open the library or the report.", "Click “Start another” for the next export."],
+    features: ["`Takeout-organize-report.txt` in the library lists media placed, dated, EXIF dates written, duplicates removed, files without a sidecar, sidecars without media and files moved per service."],
+    edge: ["If the run stopped with a problem, the summary shows which job failed and why; fix the cause and run the wizard again."],
+    messages: [],
+  },
+  snapchat_step1: {
+    workflow: ["In Snapchat go to Settings, My Data, and request your data; download the mydata~….zip file(s) when the e-mail arrives.", "Open the Snapchat page from the sidebar.", "Drop the files or their folder, or use one of the two buttons.", "Review what was found; untick anything to leave out.", "Check the folder the export will be extracted into.", "Click Next."],
+    features: ["Recognises `mydata~<id>.zip` and multi-part names `mydata~<id>-N.zip`.", "Several exports of the same account are combined: their memory lists are merged, chats and lists are unioned, and one library is built.", "An already-extracted export folder (holding json/, memories/ or chat_media/) can be used instead of the zip files.", "The row says what the export contains: memories, chats, chat media, friends, stories, location and so on."],
+    edge: ["Snapchat often lists more memories than it delivers; the ones that are missing are written to `Missing memories.csv` so they can be requested again.", "Dropping only Snapchat files on the Archives page in Auto mode opens this page instead of extracting them as plain archives."],
+    messages: [["No Snapchat export found there. The files are named like mydata~1790635398407.zip.", "Nothing recognisable at the chosen location.", "Choose the folder the browser saved the download in."]],
+  },
+  snapchat_step2: {
+    workflow: ["Left panel: decide how the files are checked and whether they are binned afterwards.", "Right panel: choose the library folder and the Memories options.", "Choose what happens to overlays.", "Click Start."],
+    features: ["Library layout: `Snapchat Library/Memories/YYYY/MM/<taken time>.jpg|.mp4`, `Memories/Memories index.csv`, `Memories/Missing memories.csv`; `Chats/<name>/Chat with <name>.txt` and `Chats/All chats.csv`; chat pictures and videos under the conversation that mentions them, otherwise `Chats/Media/YYYY/MM`; `Snaps/Snap log.csv`; `Friends/*.csv`; `Stories/*.csv`; `Location/Location history.csv` and `Areas visited.csv`; `Account data/<section>.txt` with the original json and html kept; `Snapchat library report.txt`.", "Each memory file is matched to Snapchat's own record by its timestamp and type, which is how the taken time and the place are known.", "The taken time and position are written into JPEG photos as EXIF, so they survive copying to a phone or a photo library.", "Overlays (the caption or sticker Snapchat saves as a separate transparent picture) are paired with their photo or video by id."],
+    edge: ["Times are Coordinated Universal Time, as Snapchat records them.", "A position is not written into video files.", "A memory whose record is missing is dated from its file name and listed as unmatched in the report."],
+    messages: [],
+  },
+  snapchat_step3: {
+    workflow: ["Watch the rail. Stages: checking the files, extracting each part, reading the sections, placing memories, writing EXIF, building chats and lists, writing the report.", "Leave it running. You can switch pages; the wizard keeps its place."],
+    features: ["The PC is kept awake while jobs run (unless switched off in Settings)."],
+    edge: ["Cancelling leaves already-placed files in the library and the extracted folder on disk."],
+    messages: [],
+  },
+  snapchat_step4: {
+    workflow: ["Read the summary.", "Click “Browse it here” to look through the library on the Library page, or open it in Explorer.", "Open the report for counts: memories matched, positions written, overlays paired, memories missing, chats, snaps, friends, stories, location points.", "Click “Start another” for the next export."],
+    features: ["`Snapchat library report.txt` in the library lists every count and anything that was skipped."],
+    edge: ["If the run stopped with a problem, the summary shows why; fix the cause and run the wizard again."],
+    messages: [],
+  },
+  library_page: {
+    workflow: ["Open the Library page from the sidebar, then drop a folder on it or click “Open a folder…”; or click “Browse it here” on the Done step of a wizard.", "Click folders to go down; use the path at the top or Backspace to go up.", "Click a file to preview it on the right; double-click to open it in its own program.", "Type in “Find by name” to search the whole library."],
+    features: ["Shows any folder, not only the application's own results. A Google Takeout library or a Snapchat library gets its summary file shown at the top.", "Thumbnails are the ones Windows makes, so they appear quickly even for large photos and for videos.", "Preview handles photos (JPEG, PNG, GIF, WebP, BMP, AVIF, SVG), video (MP4, M4V, WebM, MOV), audio (MP3, M4A, AAC, WAV, FLAC, OGG, Opus), text and CSV. HEIC photos and other types show an icon and open in their own program.", "The page only reads; it never writes, moves or caches anything in the folder."],
+    edge: ["The page can only read inside a folder opened on it. Media is served to the page through an application-private address that refuses anything outside those folders.", "A search is capped at 500 matches.", "A CSV preview shows the first 500 rows; a text preview the first 2 MB."],
+    messages: [["That folder does not exist. / That is a file; drop or choose a folder.", "The dropped or chosen item is not a readable folder.", "Drop a folder."]],
+  },
+  settings_page: {
+    workflow: ["Open Settings from the sidebar.", "Change a control; it is saved immediately.", "Use “Check for updates now” to look for a new version."],
+    features: ["Settings are stored in `settings.json` in the application's data folder (see the Settings reference).", "Privacy section, both off by default: a Windows notification when a job finishes while the window is not in front (job name only), and a history of finished jobs in `history.jsonl` with Open and Clear buttons. Nothing leaves the PC.", "The Privacy section states the one thing the application cannot hide: the archive password is on the 7-Zip or WinRAR command line while a job runs.", "Update flow: check → download in the background → install silently when the application closes, or immediately with “Restart to update”."],
+    edge: ["Theme, concurrency and the safety toggles take effect immediately. “Update automatically” takes effect at the next start.", "If the Explorer menu cannot be changed, the tick box returns to its previous state and a notice explains why."],
+    messages: [["Updates only run in the installed app.", "The application was started from source.", "Install the released build."], ["Could not check: Couldn't reach GitHub.", "No network connection, or GitHub is unreachable.", "Try again later."], ["Could not check: No update information in the latest release.", "The latest release lacks the update description file.", "Report it; download the installer manually."]],
+  },
+  about_page: {
+    workflow: ["Open About from the sidebar to read the version and engine details, or to reach the online pages."],
+    features: ["Links open in the default browser. Only https addresses are allowed."],
+    edge: [],
+    messages: [],
+  },
+};
+
+// Messages shown on job rows (queue), with meaning and remedy.
+const jobMessages = [
+  ["This archive is password-protected.", "The archive is encrypted and no (or a wrong) password was supplied.", "Click “Enter password”."],
+  ["Refused: archive contains paths that escape the target folder (e.g. \"..\\..\\x\").", "An entry has an absolute path or “..” in it. This guard cannot be switched off.", "Do not extract; the archive is malformed or hostile."],
+  ["Refused: archive contains N link entries … Links can point outside the target folder.", "The archive holds symbolic links, hard links or junctions.", "If you trust it, tick “Allow archives that contain links” in Settings and retry."],
+  ["Refused: suspicious compression ratio (X expands to Y).", "More than 1000 to 1 and more than 1 GB when extracted.", "If expected, tick “Allow extreme compression ratios” in Settings and retry."],
+  ["Not enough free space for <purpose>: needs about X, Y free on D:\\", "The destination or temporary drive is too full.", "Free space, or change the output or temporary folder."],
+  ["The destination disk ran out of space.", "The disk filled up during the job.", "Free space and retry."],
+  ["7-Zip can't open this file as an archive (unsupported format or not an archive).", "The file is not an archive 7-Zip understands.", "Check the file type."],
+  ["Headers Error / Unexpected end of archive / Data Error / CRC Failed / The archive is damaged or truncated.", "The archive is corrupt or incomplete.", "Download or copy it again."],
+  ["Integrity test did not report OK.", "The test of a newly created archive failed.", "Retry; check the disk."],
+  ["Missing: <path>", "An input no longer exists.", "Check the path."],
+  ["7-Zip engine (7z.exe) not found. Reinstall Unpacker V2 or install 7-Zip.", "The engine is missing from the installation.", "Reinstall."],
+  ["7-Zip ran out of memory.", "The engine could not allocate memory (very high level on a huge input).", "Use a lower compression level."],
+  ["That doesn't look like an Unpacker V2 manifest. / No manifest found inside that archive.", "Verify a manifest was given a file it cannot use.", "Choose the .manifest.txt, or an archive made with a manifest."],
+  ["N problem(s), see <name>.verify.txt: MISSING … / DAMAGED … / CHANGED …", "Verification found archives missing, failing their test, or files whose checksum differs.", "Restore from another copy."],
+  ["Warning: Removed N partial output file(s); kept M that had already verified.", "The job was cancelled or failed while writing.", "Run it again; verified archives are complete and usable."],
+  ["Warning: N file(s) larger than the chunk limit were packed as volume sets.", "A single file exceeded the size limit.", "Keep all volumes of those sets together."],
+  ["Warning: N cloud-only files are not on this PC yet (OneDrive): a.jpg, b.jpg, …", "Inputs in a OneDrive, Google Drive, Dropbox or iCloud folder were checked file by file and some are placeholders that download on first read.", "Right-click the folder and choose “Always keep on this device”, wait for the download, then run the job."],
+  ["Warning: Inputs are in a OneDrive (or other cloud) folder.", "The per-file check could not run (PowerShell unavailable or timed out).", "Mark the folder “Always keep on this device” first."],
+];
+
+const glossary = [
+  ["Archive", "One file that holds other files, usually compressed, for example a .zip or .7z file."],
+  ["Batch", "A set of extract jobs started together by Mass extract, shown as one card."],
+  ["Callout", "A numbered marker on a screenshot that matches a row in the table below it."],
+  ["Chunk (independent archive)", "One of several complete archives produced when a size limit is applied; each opens on its own."],
+  ["Compound format", "A tar archive wrapped in a stream compressor, such as tar.gz. The engine handles it in two passes."],
+  ["Engine", "The program that does the actual compression work: the bundled 7-Zip, and optionally an installed WinRAR."],
+  ["EXIF", "Data stored inside a photo file, including the date it was taken."],
+  ["Integrity test (verify)", "Reading an archive back and checking every file's checksum without writing anything."],
+  ["Job", "One unit of work in the queue: compress, extract, convert, test, pack, takeout, organize or verify-manifest."],
+  ["Library", "The tidy folder tree built by the Google Takeout organiser (one folder per Google service) or by the Snapchat wizard (Memories, Chats, Snaps, Friends, Stories, Location, Account data)."],
+  ["Library page", "The page that shows any folder as a visual directory with thumbnails and a preview. Read-only."],
+  ["Memories", "Snapchat's saved photos and videos. The export delivers them as files named by date and id, with a separate list of when and where each was taken."],
+  ["Overlay", "The caption or sticker Snapchat saves as a separate transparent picture next to a memory."],
+  ["Placeholder (cloud-only file)", "A file a sync service shows in Explorer without its content being on the disk; it downloads when first read."],
+  ["Manifest", "A text file listing every file in an archive set, with size, date, the archive holding it, and optionally a SHA-256 checksum."],
+  ["Part (Takeout)", "One of the numbered archives Google produces for an export. Parts are independent archives that share a Takeout folder."],
+  ["Queue", "The list of jobs on the Archives page."],
+  ["Recycle Bin", "Where the application sends anything it removes; it never deletes user files outright."],
+  ["SHA-256", "A checksum that changes if even one bit of a file changes."],
+  ["Sidecar", "The .json file Google Photos places next to each photo or video with its metadata."],
+  ["Solid archive", "A 7z archive in which files are compressed together as one stream for a better ratio."],
+  ["Split set (volumes)", "One archive cut into numbered pieces; all pieces are needed to open it."],
+  ["Store", "Packing without compression."],
+  ["Temporary folder", "Scratch space used during conversions and checks; emptied when the job ends."],
+  ["ZIP64", "The extension of the ZIP format for files over 4 GB and archives with more than 65,535 entries; used automatically."],
+];
+
+module.exports = { surfaces, jobMessages, glossary };

@@ -1,0 +1,10 @@
+{
+  "name": "unpacker-v2-doc-tools",
+  "private": true,
+  "description": "Throwaway tooling that regenerates the release-package screenshots and diagrams. Not part of the application.",
+  "dependencies": {
+    "docx": "^9.8.1",
+    "mermaid": "^11.4.0",
+    "playwright-core": "^1.55.0"
+  }
+}

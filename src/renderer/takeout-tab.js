@@ -21,7 +21,7 @@
       li.classList.toggle("past", k < n);
     }
     for (let k = 1; k <= 4; k += 1) page(k).hidden = k !== n;
-    $("wzBack").hidden = n === 1 || n === 3;
+    $("wzBack").hidden = n !== 2;
     $("wzNext").hidden = n === 4;
     $("wzNext").textContent = n === 2 ? "Start" : "Next";
     $("wzNext").disabled = n === 3 || (n === 1 && !hasSelection());

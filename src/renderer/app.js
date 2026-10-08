@@ -71,6 +71,12 @@ async function boot() {
     else if (which === "takeoutTab") {
       showTab("takeout");
       if (paths.length && window.takeoutTab) await window.takeoutTab.onDrop(paths);
+    } else if (which === "snapchatTab") {
+      showTab("snapchat");
+      if (paths.length && window.snapchatTab) await window.snapchatTab.onDrop(paths);
+    } else if (which === "library") {
+      if (paths.length && window.libraryTab) await window.libraryTab.openFolder(paths[0]);
+      else showTab("library");
     } else if (which === "archivesTab") showTab("archives");
   });
   api.update.onStatus((s) => {
