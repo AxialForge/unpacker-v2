@@ -16,6 +16,18 @@ All notable changes to this project are documented here. The format follows
   Media is served through an app-private `unp://` scheme that only reaches
   folders opened on the page.
 
+- Takeout organize resumes after a cancel or crash: the hashes of placed
+  files and the album index are checkpointed in the library, so a rerun
+  still removes duplicates and lists every album in full.
+- Settings > Privacy (both off by default): a Windows notification when a
+  job finishes while the window is not in front (job name only), and a
+  history of finished jobs in `history.jsonl` with Open and Clear buttons.
+  The section also states that the archive password is visible on the
+  engine's command line while a job runs.
+- Cloud placeholders are detected per file: a job whose inputs sit in a
+  OneDrive, Google Drive, Dropbox or iCloud folder says how many files are
+  cloud-only and names the first few, instead of a blanket warning.
+
 ### Fixed
 
 - Option labels with inline file names (for example the export-log tick box)

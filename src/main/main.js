@@ -1,7 +1,7 @@
 // Electron main process: window, engine wiring, the job queue, IPC, and the
 // command-line entry points used by the Explorer context menu.
 
-const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, powerSaveBlocker, protocol, net } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, powerSaveBlocker, protocol, net, Notification } = require("electron");
 const { pathToFileURL } = require("node:url");
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
@@ -153,10 +153,43 @@ function initQueue() {
   queue.on("change", (job) => {
     if (mainWindow) mainWindow.webContents.send("jobs:change", job);
     onQueueActivity();
+    onJobFinished(job);
   });
   groups = new GroupRegistry({ queue, trash: (p) => shell.trashItem(p) });
   groups.on("change", (g) => mainWindow && mainWindow.webContents.send("groups:change", g));
-  queue.on("removed", (id) => mainWindow && mainWindow.webContents.send("jobs:removed", id));
+  queue.on("removed", (id) => {
+    finishedSeen.delete(id);
+    if (mainWindow) mainWindow.webContents.send("jobs:removed", id);
+  });
+}
+
+// ── finished jobs: optional notification + optional history (both off by default) ──
+const finishedSeen = new Set();
+const historyPath = () => path.join(app.getPath("userData"), "history.jsonl");
+function onJobFinished(job) {
+  if (!["done", "failed", "cancelled"].includes(job.state) || finishedSeen.has(job.id)) return;
+  finishedSeen.add(job.id);
+  const s = store.get();
+  if (s.notifyDone && Notification.isSupported() && !(mainWindow && mainWindow.isFocused())) {
+    const word = job.state === "done" ? (job.warnings && job.warnings.length ? "finished with warnings" : "finished") : job.state;
+    // Label only: no paths or options leave the app.
+    const n = new Notification({ title: "Unpacker V2", body: `${job.label}: ${word}`, silent: false });
+    n.on("click", () => {
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+    n.show();
+  }
+  if (s.jobHistory) {
+    const rec = { time: new Date().toISOString(), kind: job.kind, label: job.label, state: job.state, started: job.startedAt ? new Date(job.startedAt).toISOString() : null, ended: job.endedAt ? new Date(job.endedAt).toISOString() : null, inputs: job.inputs, output: job.output || null, error: job.error || null, warnings: job.warnings || [] };
+    try {
+      fs.appendFileSync(historyPath(), `${JSON.stringify(rec)}\n`);
+    } catch {
+      /* profile folder unwritable: history is best effort */
+    }
+  }
 }
 
 /**
@@ -239,6 +272,21 @@ async function addPaths({ paths = [], action = "auto", options = {} }) {
 // ── IPC ─────────────────────────────────────────────────────────
 
 function registerIpc() {
+  // ── job history file (Settings > Privacy) ──
+  ipcMain.handle("history:info", () => {
+    try {
+      const st = fs.statSync(historyPath());
+      return { path: historyPath(), size: st.size, lines: fs.readFileSync(historyPath(), "utf8").split("\n").filter(Boolean).length };
+    } catch {
+      return { path: historyPath(), size: 0, lines: 0 };
+    }
+  });
+  ipcMain.handle("history:open", () => (fs.existsSync(historyPath()) ? shell.openPath(historyPath()) : "missing"));
+  ipcMain.handle("history:clear", () => {
+    fs.rmSync(historyPath(), { force: true });
+    return true;
+  });
+
   // ── Library page (read-only browsing of a result folder) ──
   ipcMain.handle("library:open", (_e, dir) => library.open(dir));
   ipcMain.handle("library:list", (_e, { id, rel }) => library.list(id, rel));

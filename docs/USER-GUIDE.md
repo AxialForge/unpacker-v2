@@ -295,6 +295,14 @@ that folder are skipped. A `Takeout-import-report.txt` lands in the folder.
   *Extract to folder…*, *Convert archive…* and *Extract all archives in
   here…*. On Windows 11 they sit under "Show more options".
 - **Update automatically** from GitHub Releases.
+- **Privacy section.** Both off by default. *Show a Windows notification
+  when a job finishes* while the window is not in front; the notification
+  carries the job's name only. *Keep a history of finished jobs* appends one
+  line per job (name, kind, result, input and output paths, warnings) to
+  `history.jsonl` in the app's profile folder, with *Open* and *Clear*
+  buttons; nothing leaves the PC. The section also states the one thing the
+  app cannot hide: the archive password is on the 7-Zip or WinRAR command
+  line while a job runs.
 - **Updates section.** Shows the installed version, a *Check for updates
   now* button with live status, and *Restart to update* once a new version
   has downloaded. Updates are fetched over HTTPS and checked against the
@@ -324,9 +332,11 @@ The Explorer entries run these; you can too:
 - Passwords are visible on the 7-Zip or WinRAR command line while a job
   runs, like every archiver built on them. They never appear in the window's
   job list.
-- Inputs inside OneDrive, Google Drive, Dropbox or iCloud folders trigger a
-  warning: cloud-only placeholder files download as they are read. Mark the
-  folder "Always keep on this device" first.
+- Inputs inside OneDrive, Google Drive, Dropbox or iCloud folders are checked
+  file by file: the job warns how many are cloud-only placeholders and names
+  the first few. Placeholders download as they are read, which can be very
+  slow; right-click the folder and choose "Always keep on this device"
+  first.
 - Cancelling removes any half-written archive. In a chunked pack, chunks that
   already verified are kept.
 - RAR creation needs WinRAR; only rar.exe can write the format and its

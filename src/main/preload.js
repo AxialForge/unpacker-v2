@@ -59,6 +59,11 @@ contextBridge.exposeInMainWorld("unpacker", {
     // Wizard: queue extract (per export) then organize; or organize existing trees
     runPipeline: (req) => ipcRenderer.invoke("takeout:runPipeline", req),
   },
+  history: {
+    info: () => ipcRenderer.invoke("history:info"),
+    open: () => ipcRenderer.invoke("history:open"),
+    clear: () => ipcRenderer.invoke("history:clear"),
+  },
   library: {
     // open(folder) -> { id, root, name, kind, summary } | { error }
     open: (dir) => ipcRenderer.invoke("library:open", dir),

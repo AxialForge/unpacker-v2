@@ -347,7 +347,7 @@
 
   function init() {
     $("libOpen").addEventListener("click", async () => {
-      const d = await api.dialog.chooseFolder("Choose a library folder to browse");
+      const [d] = (await api.dialog.chooseFolder("Choose a library folder to browse")) || [];
       if (d) openFolder(d);
     });
     $("libView").addEventListener("click", (e) => {

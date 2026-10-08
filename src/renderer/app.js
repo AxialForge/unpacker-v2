@@ -319,6 +319,19 @@ function wireUi() {
   $("setAllowLinks").addEventListener("change", () => save({ allowLinks: $("setAllowLinks").checked }));
   $("setPreventSleep").addEventListener("change", () => save({ preventSleep: $("setPreventSleep").checked }));
   $("setCloseToTray").addEventListener("change", () => save({ closeToTray: $("setCloseToTray").checked }));
+  $("setNotifyDone").addEventListener("change", () => save({ notifyDone: $("setNotifyDone").checked }));
+  $("setJobHistory").addEventListener("change", async () => {
+    await save({ jobHistory: $("setJobHistory").checked });
+    showHistoryInfo();
+  });
+  $("histOpen").addEventListener("click", async () => {
+    if ((await api.history.open()) === "missing") notice("No history file yet.", "warn");
+  });
+  $("histClear").addEventListener("click", async () => {
+    await api.history.clear();
+    showHistoryInfo();
+    notice("History cleared.", "ok");
+  });
   $("pkPlacement").addEventListener("change", syncPackNote);
   api.onActivity(({ busy, awake }) => {
     $("awakeBadge").hidden = !(busy && awake);
@@ -352,7 +365,18 @@ async function openSettings() {
   $("setAllowLinks").checked = !!settings.allowLinks;
   $("setPreventSleep").checked = settings.preventSleep !== false;
   $("setCloseToTray").checked = !!settings.closeToTray;
+  $("setNotifyDone").checked = !!settings.notifyDone;
+  $("setJobHistory").checked = !!settings.jobHistory;
   $("setContextMenu").checked = await api.contextMenu.get();
+  showHistoryInfo();
+}
+
+async function showHistoryInfo() {
+  const h = await api.history.info();
+  const have = h.lines ? `${h.lines} job${h.lines === 1 ? "" : "s"} recorded (${fmtBytes(h.size)}) in ${h.path}` : `Nothing recorded yet. The file would be ${h.path}`;
+  $("histInfo").textContent = settings.jobHistory ? have : h.lines ? `History is off. ${have}` : "History is off; nothing is recorded.";
+  $("histOpen").disabled = !h.lines;
+  $("histClear").disabled = !h.lines;
 }
 
 // ── convert modal ───────────────────────────────────────────────

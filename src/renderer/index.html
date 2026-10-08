@@ -586,6 +586,19 @@
           <label class="check"><input type="checkbox" id="setContextMenu" /><span>Add "Add to archive / Extract here / Convert" to the Explorer right-click menu <span class="muted">(Windows 11: under "Show more options")</span></span></label>
           <label class="check"><input type="checkbox" id="setAutoUpdate" /><span>Update automatically from GitHub Releases</span></label>
         </div>
+        <h3 class="section-title">Privacy</h3>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="setNotifyDone" /><span>Show a Windows notification when a job finishes while this window is not in front <span class="muted">(the notification carries the job's name only, never a path)</span></span></label>
+          <label class="check"><input type="checkbox" id="setJobHistory" /><span>Keep a history of finished jobs <span class="muted">(a text file in this app's profile folder: name, kind, result, input and output paths; nothing leaves the PC)</span></span></label>
+        </div>
+        <div class="upd-row">
+          <p id="histInfo" class="muted">History is off; nothing is recorded.</p>
+          <div class="btn-row">
+            <button id="histOpen" class="btn small">Open history file</button>
+            <button id="histClear" class="btn small">Clear history</button>
+          </div>
+        </div>
+        <p class="muted">Passwords: 7-Zip and WinRAR take the archive password on their command line, so for the seconds a job runs it is visible to other programs on this PC that list running processes (like every archiver built on those engines). Passwords are never written to the job list, the history file or any log.</p>
         <h3 class="section-title">Updates</h3>
         <div class="panel">
           <div class="upd-row">

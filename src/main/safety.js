@@ -108,4 +108,37 @@ function cloudSyncRoot(p, env = process.env) {
   return null;
 }
 
-module.exports = { unsafeEntries, bombRisk, longPath, uniquePath, safeFileName, fmtBytes, linkEntries, cloudSyncRoot };
+/**
+ * Which of these inputs (files, or folders searched recursively) are cloud
+ * placeholders that would have to download before they can be read? Windows
+ * marks them with RECALL_ON_DATA_ACCESS / RECALL_ON_OPEN / OFFLINE. Node's
+ * stat does not expose attributes, so one PowerShell call does the walk for
+ * every input at once. Returns { count, sample: [names] } or null when it
+ * cannot be determined (not Windows, PowerShell missing, timeout).
+ */
+async function findPlaceholders(paths, { timeoutMs = 60000, sample = 12 } = {}) {
+  if (process.platform !== "win32" || !paths.length) return null;
+  const { execFile } = require("node:child_process");
+  const q = (p) => `'${String(p).replace(/'/g, "''")}'`;
+  const script = [
+    "$ErrorActionPreference='SilentlyContinue'",
+    "$m = 0x400000 -bor 0x40000 -bor 0x1000",
+    "$n = 0",
+    `foreach ($p in @(${paths.map(q).join(",")})) {`,
+    "  $items = if (Test-Path -LiteralPath $p -PathType Container) { Get-ChildItem -LiteralPath $p -Recurse -File -Force } else { Get-Item -LiteralPath $p -Force }",
+    `  foreach ($f in $items) { if ($f.Attributes -band $m) { $n++; if ($n -le ${sample}) { $f.FullName } } }`,
+    "}",
+    "\"COUNT $n\"",
+  ].join("; ");
+  return new Promise((res) => {
+    execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script], { windowsHide: true, timeout: timeoutMs, maxBuffer: 1 << 20 }, (err, out) => {
+      if (err || !out) return res(null);
+      const lines = String(out).split(/\r?\n/).filter(Boolean);
+      const m = /^COUNT (\d+)$/.exec(lines[lines.length - 1] || "");
+      if (!m) return res(null);
+      res({ count: Number(m[1]), sample: lines.slice(0, -1) });
+    });
+  });
+}
+
+module.exports = { unsafeEntries, bombRisk, longPath, uniquePath, safeFileName, fmtBytes, linkEntries, cloudSyncRoot, findPlaceholders };

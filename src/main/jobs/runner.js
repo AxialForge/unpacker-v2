@@ -87,15 +87,31 @@ class Runner {
     }
   }
 
-  /** Warn once per job when inputs sit in a cloud-sync folder (placeholders download on read). */
-  warnCloud(paths, ctx) {
-    const seen = new Set();
+  /**
+   * Warn once per job when inputs sit in a cloud-sync folder, and say exactly
+   * which files are cloud-only placeholders (they download as they are read,
+   * which can be very slow or stall). The per-file check only runs for inputs
+   * inside a known sync root, so jobs elsewhere pay nothing.
+   */
+  async warnCloud(paths, ctx) {
+    const inCloud = [];
+    const services = new Set();
     for (const p of paths) {
       const svc = safety.cloudSyncRoot(p);
-      if (svc && !seen.has(svc)) {
-        seen.add(svc);
-        ctx.warn(`Inputs are in a ${svc} folder. Cloud-only files download as they are read, which can be very slow; mark the folder "Always keep on this device" first if it isn't.`);
+      if (svc) {
+        services.add(svc);
+        inCloud.push(p);
       }
+    }
+    if (!inCloud.length) return;
+    const svc = [...services].join(" and ");
+    ctx.stage("Checking for cloud-only files");
+    const found = await safety.findPlaceholders(inCloud);
+    if (found === null) {
+      ctx.warn(`Inputs are in a ${svc} folder. Cloud-only files download as they are read, which can be very slow; mark the folder "Always keep on this device" first if it isn't.`);
+    } else if (found.count) {
+      const names = found.sample.map((p) => path.basename(p)).join(", ");
+      ctx.warn(`${found.count.toLocaleString()} cloud-only file${found.count === 1 ? " is" : "s are"} not on this PC yet (${svc}): ${names}${found.count > found.sample.length ? ", …" : ""}. They download as they are read, which can be very slow; right-click the folder and choose "Always keep on this device" first.`);
     }
   }
 
@@ -302,7 +318,7 @@ class Runner {
     const verified = new Set();
     let finished = false;
     try {
-      this.warnCloud(inputs, ctx);
+      await this.warnCloud(inputs, ctx);
       ctx.stage("Measuring");
       const { total, capped } = await this.sizeOf(inputs, ctx.signal);
       const outDir = this.outputDirFor(job, inputs[0]);
@@ -527,7 +543,7 @@ class Runner {
       // .tgz parts are unwrapped through temp one at a time: room for the biggest one.
       await this.ensureSpace(tempDir, Math.max(...todo.map((p) => p.size)) + 64 * 1024 * 1024, "unpacking a .tgz part");
     }
-    this.warnCloud(parts, ctx);
+    await this.warnCloud(parts, ctx);
     try {
       for (const part of todo) {
         const from = base + 5 + ((acc / totalBytes) * 75);
@@ -588,7 +604,7 @@ class Runner {
     const verifiedSet = new Set();
     let finished = false;
     try {
-      this.warnCloud(job.inputs, ctx);
+      await this.warnCloud(job.inputs, ctx);
       ctx.stage("Listing files");
       const { root, files } = await analyze.enumerate(job.inputs, { signal: ctx.signal });
       if (!files.length) throw new EngineError({ kind: "notfound", message: "Nothing to pack: no files found." }, "");
@@ -816,7 +832,7 @@ class Runner {
       const parts = job.inputs.map((p) => path.resolve(p));
       stage = path.resolve(o.dest);
       fs.mkdirSync(stage, { recursive: true });
-      this.warnCloud(parts, ctx);
+      await this.warnCloud(parts, ctx);
       const sizes = await Promise.all(parts.map(async (p) => (await fsp.stat(p)).size));
       const total = sizes.reduce((a, b) => a + b, 0) || 1;
       let base = 0;

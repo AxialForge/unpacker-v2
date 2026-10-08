@@ -25,6 +25,8 @@ const DEFAULTS = {
   closeToTray: false, // close button hides to the tray while jobs run (no dialog)
   preventSleep: true, // powerSaveBlocker while jobs run
   manifestPlacement: "beside", // "beside" (+inside) | "inside" (only inside the archives)
+  notifyDone: false, // Windows notification when a job finishes while the window is not in front
+  jobHistory: false, // append finished jobs to history.jsonl in the profile folder
 };
 
 class Store {
