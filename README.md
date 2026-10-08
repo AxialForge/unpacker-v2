@@ -46,6 +46,19 @@ all just work, on files of any size.
   Year/Month folders, duplicate removal and an album index; Drive, Mail and
   every other service land in one folder each. Handles multi-set exports and
   browser re-downloads.
+- **Snapchat page** — for Snapchat's "My Data" export (`mydata~….zip`), one
+  export or several of the same account at once. Memories become a dated,
+  geotagged Year/Month library (EXIF taken time and place written into the
+  photos, overlays kept with their picture); chats become readable
+  transcripts plus `All chats.csv`; snaps, friends, stories and location
+  history become spreadsheets; everything else is kept as readable text with
+  the originals.
+- **Library page** — a read-only visual directory of any result: folder
+  tree, grid or list with real thumbnails, and a preview for photos, video,
+  audio, text, chat transcripts and CSV tables. Searches the whole library
+  by name. Nothing is indexed or changed.
+- **Export log** (optional) — `What's in here.txt` and `Contents.csv` at the
+  top of a mass result, describing it without rearranging anything.
 - **Google Takeout** (quick merge) — point it at your downloads folder (or drop the parts)
   and it groups the numbered parts into exports, flags missing parts, checks
   every download for damage first, checks disk space for the whole export,
