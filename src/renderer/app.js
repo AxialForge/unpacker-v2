@@ -91,7 +91,7 @@ function fillSelect(sel, items, map) {
   }
 }
 
-const PAGES = { archives: ["tabArchives", "Archives"], takeout: ["tabTakeout", "Google Takeout"], snapchat: ["tabSnapchat", "Snapchat"], settings: ["pageSettings", "Settings"], about: ["pageAbout", "About"] };
+const PAGES = { archives: ["tabArchives", "Archives"], takeout: ["tabTakeout", "Google Takeout"], snapchat: ["tabSnapchat", "Snapchat"], library: ["tabLibrary", "Library"], settings: ["pageSettings", "Settings"], about: ["pageAbout", "About"] };
 function showTab(name) {
   if (!PAGES[name]) name = "archives";
   document.body.dataset.tab = name;
@@ -195,6 +195,7 @@ function wireUi() {
     const paths = [...(e.dataTransfer.files || [])].map((f) => api.pathForFile(f)).filter(Boolean);
     if (document.body.dataset.tab === "takeout" && window.takeoutTab) return window.takeoutTab.onDrop(paths);
     if (document.body.dataset.tab === "snapchat" && window.snapchatTab) return window.snapchatTab.onDrop(paths);
+    if (document.body.dataset.tab === "library" && window.libraryTab) return window.libraryTab.onDrop(paths);
     submitPaths(paths);
   });
 

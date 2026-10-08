@@ -155,6 +155,8 @@
     }
     $("scDoneTitle").textContent = failed ? (failed.state === "cancelled" ? "Cancelled" : "Stopped with a problem") : "Done";
     $("scSummary").textContent = lines.join("\n");
+    $("scBrowse").hidden = !lib;
+    $("scBrowse").onclick = () => window.libraryTab && window.libraryTab.openFolder(lib);
     $("scOpenLibrary").hidden = !lib;
     $("scOpenReport").hidden = !lib;
     $("scOpenLibrary").onclick = () => api.shell.openPath(lib);

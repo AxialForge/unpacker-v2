@@ -59,6 +59,14 @@ contextBridge.exposeInMainWorld("unpacker", {
     // Wizard: queue extract (per export) then organize; or organize existing trees
     runPipeline: (req) => ipcRenderer.invoke("takeout:runPipeline", req),
   },
+  library: {
+    // open(folder) -> { id, root, name, kind, summary } | { error }
+    open: (dir) => ipcRenderer.invoke("library:open", dir),
+    list: (id, rel) => ipcRenderer.invoke("library:list", { id, rel }),
+    read: (id, rel) => ipcRenderer.invoke("library:read", { id, rel }),
+    search: (id, query) => ipcRenderer.invoke("library:search", { id, query }),
+    abs: (id, rel) => ipcRenderer.invoke("library:abs", { id, rel }),
+  },
   dialog: {
     chooseFiles: () => ipcRenderer.invoke("dialog:chooseFiles"),
     chooseFolder: (title) => ipcRenderer.invoke("dialog:chooseFolder", title),

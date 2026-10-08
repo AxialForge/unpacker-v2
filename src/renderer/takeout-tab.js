@@ -237,6 +237,8 @@
     const org = state.jobs.organize.map((id) => jobs.get(id)).find((j) => j && j.state === "done");
     const ex = state.jobs.extract.map((id) => jobs.get(id)).find((j) => j && j.state === "done");
     const lib = org ? org.output : ex ? ex.output : null;
+    $("wzBrowse").hidden = !lib;
+    $("wzBrowse").onclick = () => window.libraryTab && window.libraryTab.openFolder(lib);
     $("wzOpenLibrary").hidden = !lib;
     $("wzOpenLibrary").onclick = () => api.shell.openPath(lib);
     $("wzOpenLibrary").textContent = org ? "Open the library" : "Open the merged folder";

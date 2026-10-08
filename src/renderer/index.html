@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: unp:; media-src unp:" />
     <title>Unpacker V2</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -17,6 +17,7 @@
         <button class="nav-item on" data-tab="archives"><span class="ico">▣</span>Archives</button>
         <button class="nav-item" data-tab="takeout"><span class="ico">G</span>Google Takeout</button>
         <button class="nav-item" data-tab="snapchat"><span class="ico">S</span>Snapchat</button>
+        <button class="nav-item" data-tab="library"><span class="ico">▤</span>Library</button>
         <button class="nav-item" data-tab="settings"><span class="ico">⚙</span>Settings</button>
         <button class="nav-item" data-tab="about"><span class="ico">ⓘ</span>About</button>
       </nav>
@@ -111,7 +112,8 @@
         <h2 id="wzDoneTitle">Done</h2>
         <pre id="wzSummary" class="wz-summary"></pre>
         <div class="btn-row">
-          <button id="wzOpenLibrary" class="btn accent">Open the library</button>
+          <button id="wzBrowse" class="btn accent">Browse it here</button>
+          <button id="wzOpenLibrary" class="btn">Open the library</button>
           <button id="wzOpenReport" class="btn">Open the report</button>
           <button id="wzAgain" class="btn">Start another</button>
         </div>
@@ -196,7 +198,8 @@
         <h2 id="scDoneTitle">Done</h2>
         <pre id="scSummary" class="wz-summary"></pre>
         <div class="btn-row">
-          <button id="scOpenLibrary" class="btn accent">Open the library</button>
+          <button id="scBrowse" class="btn accent">Browse it here</button>
+          <button id="scOpenLibrary" class="btn">Open the library</button>
           <button id="scOpenReport" class="btn">Open the report</button>
           <button id="scAgain" class="btn">Start another</button>
         </div>
@@ -491,6 +494,45 @@
     </div>
 
     <!-- settings -->
+    <main id="tabLibrary" class="lib" hidden>
+      <div class="lib-bar">
+        <button id="libOpen" class="btn">Open a folder…</button>
+        <div id="libCrumbs" class="lib-crumbs"></div>
+        <input id="libSearch" type="search" placeholder="Find by name…" disabled />
+        <div class="seg" id="libView">
+          <button data-view="grid" class="on" title="Grid">▦</button>
+          <button data-view="list" title="List">☰</button>
+        </div>
+      </div>
+      <div class="lib-body">
+        <aside id="libTree" class="lib-tree" hidden></aside>
+        <section class="lib-main">
+          <div id="libEmpty" class="dropzone small lib-empty">
+            <p><strong>Drop a library folder here</strong> — a Google Takeout or Snapchat result, or any folder — to browse it.</p>
+            <p class="muted">Nothing is changed or indexed; the folder is read as it is.</p>
+          </div>
+          <details id="libSummary" class="lib-summary" hidden>
+            <summary id="libSummaryTitle">What's in here</summary>
+            <pre id="libSummaryText"></pre>
+          </details>
+          <div id="libStatus" class="muted lib-status"></div>
+          <div id="libGrid" class="lib-grid"></div>
+        </section>
+        <aside id="libPreview" class="lib-preview" hidden>
+          <div class="lib-preview-head">
+            <span id="libPvName" class="lib-pv-name"></span>
+            <button id="libPvClose" class="btn small ghost" title="Close">✕</button>
+          </div>
+          <div id="libPvBody" class="lib-pv-body"></div>
+          <div id="libPvMeta" class="muted lib-pv-meta"></div>
+          <div class="btn-row">
+            <button id="libPvOpen" class="btn small">Open in its app</button>
+            <button id="libPvShow" class="btn small">Show in folder</button>
+          </div>
+        </aside>
+      </div>
+    </main>
+
     <main id="pageSettings" class="page" hidden>
       <div class="page-inner">
         <h3 class="section-title">General</h3>
@@ -593,5 +635,6 @@
     <script src="app.js"></script>
     <script src="takeout-tab.js"></script>
     <script src="snapchat-tab.js"></script>
+    <script src="library-tab.js"></script>
   </body>
 </html>

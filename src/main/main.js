@@ -1,7 +1,8 @@
 // Electron main process: window, engine wiring, the job queue, IPC, and the
 // command-line entry points used by the Explorer context menu.
 
-const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, powerSaveBlocker } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, powerSaveBlocker, protocol, net } = require("electron");
+const { pathToFileURL } = require("node:url");
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
@@ -19,6 +20,12 @@ const analyze = require("./analyze");
 const chunker = require("./chunker");
 const scan = require("./scan");
 const updater = require("./updater");
+const { Library } = require("./library");
+
+// unp://<libraryId>/<relative path>[?thumb=1]: media for the Library page.
+// Registered before ready so the renderer may use it in <img>/<video>.
+protocol.registerSchemesAsPrivileged([{ scheme: "unp", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }]);
+const library = new Library();
 
 const DEV = process.argv.includes("--dev");
 
@@ -232,6 +239,13 @@ async function addPaths({ paths = [], action = "auto", options = {} }) {
 // ── IPC ─────────────────────────────────────────────────────────
 
 function registerIpc() {
+  // ── Library page (read-only browsing of a result folder) ──
+  ipcMain.handle("library:open", (_e, dir) => library.open(dir));
+  ipcMain.handle("library:list", (_e, { id, rel }) => library.list(id, rel));
+  ipcMain.handle("library:read", (_e, { id, rel }) => library.read(id, rel));
+  ipcMain.handle("library:search", (_e, { id, query }) => library.search(id, query));
+  ipcMain.handle("library:abs", (_e, { id, rel }) => library.resolve(id, rel));
+
   ipcMain.handle("app:info", () => ({
     version: app.getVersion(),
     engine: engineInfo,
@@ -489,6 +503,21 @@ function registerIpc() {
 
 app.whenReady().then(() => {
   store = new Store(app.getPath("userData"));
+  protocol.handle("unp", async (req) => {
+    const u = new URL(req.url);
+    const abs = library.resolve(u.host, decodeURIComponent(u.pathname));
+    if (!abs) return new Response("not in an open library", { status: 403 });
+    if (u.searchParams.get("thumb")) {
+      try {
+        // Windows shell thumbnails: photos, and videos when a codec is installed.
+        const img = await nativeImage.createThumbnailFromPath(abs, { width: 320, height: 320 });
+        return new Response(img.toJPEG(80), { headers: { "content-type": "image/jpeg", "cache-control": "max-age=3600" } });
+      } catch {
+        return new Response("", { status: 404 });
+      }
+    }
+    return net.fetch(pathToFileURL(abs).toString());
+  });
   initEngine();
   initQueue();
   registerIpc();

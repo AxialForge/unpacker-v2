@@ -22,8 +22,8 @@ nothing extra.
 ## The main window
 
 The sidebar on the left switches between **Archives** (the queue and the
-compress/extract tools), **Google Takeout** (the guided wizard), **Settings**
-and **About**. The sidebar footer shows the version and, while jobs run,
+compress/extract tools), **Google Takeout** (the guided wizard), **Snapchat**,
+**Library** (browse a result), **Settings** and **About**. The sidebar footer shows the version and, while jobs run,
 whether the PC is being kept awake.
 
 - **Drop zone.** Drop files, folders or archives. In **Auto** mode archives
@@ -213,6 +213,26 @@ choose the options and press Start.
   one library, and their memory lists are merged.
 
 Times are Coordinated Universal Time, as Snapchat records them.
+
+## The Library page
+
+A read-only visual directory for whatever a run produced: a Google Takeout
+library, a Snapchat library, or any folder. Drop a folder on the page, press
+*Open a folder…*, or press *Browse it here* on a wizard's Done step.
+
+- **Tree** on the left, **grid or list** in the middle, **preview** on the
+  right. Click a folder to enter it, click a file to preview it, double-click
+  a file to open it in its own app. Backspace goes up a level.
+- Photos and videos show real thumbnails (Windows makes them, so a video
+  thumbnail needs a codec Windows knows). The preview plays video and audio,
+  shows text and chat transcripts, and renders `.csv` as a table (first 500
+  rows).
+- If a folder has a `What's in here.txt` or a library report, it appears as
+  a collapsible summary at the top.
+- **Find by name** searches the whole library, not just the current folder.
+
+Nothing is indexed, cached or changed. The page can only read inside a
+folder you opened in it.
 
 ## The export log
 

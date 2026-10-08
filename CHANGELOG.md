@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Library page: a read-only visual directory of a result folder (Takeout,
+  Snapchat or any folder). Folder tree, grid or list with real thumbnails,
+  and a preview pane for photos, video, audio, text, chat transcripts and CSV
+  tables; whole-library name search; the folder's `What's in here.txt` or
+  report shown at the top. Wizards get a "Browse it here" button when done.
+  Media is served through an app-private `unp://` scheme that only reaches
+  folders opened on the page.
+
+### Fixed
+
+- Option labels with inline file names (for example the export-log tick box)
+  wrapped into columns.
+- Tapping Alt no longer reveals Electron's default File/View/DevTools menu.
+- Dialogs: Escape cancels, Enter presses the main button, focus moves into
+  the dialog when it opens.
+
 ## [0.3.0] - 2026-10-06
 
 ### Added
