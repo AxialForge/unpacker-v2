@@ -566,6 +566,11 @@ input[type="password"] {
 }
 .check input {
   margin-top: 3px;
+  flex: none;
+}
+.check > span {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .outrow {
   display: flex;

@@ -64,9 +64,9 @@
           <div class="panel" id="wzExtractPanel">
             <div class="panel-title">Extracting the parts</div>
             <div class="checks">
-              <label class="check"><input type="checkbox" id="wzVerify" checked /> Check every download for damage first</label>
-              <label class="check"><input type="checkbox" id="wzResume" checked /> Skip parts already extracted into that folder</label>
-              <label class="check"><input type="checkbox" id="wzTrashParts" /> Recycle-Bin the parts when the export succeeded</label>
+              <label class="check"><input type="checkbox" id="wzVerify" checked /><span>Check every download for damage first</span></label>
+              <label class="check"><input type="checkbox" id="wzResume" checked /><span>Skip parts already extracted into that folder</span></label>
+              <label class="check"><input type="checkbox" id="wzTrashParts" /><span>Recycle-Bin the parts when the export succeeded</span></label>
             </div>
             <label><span class="muted">If a file already exists</span>
               <select id="wzOverwrite"><option value="skip">Skip it</option><option value="overwrite">Overwrite it</option><option value="rename">Keep both</option></select>
@@ -74,27 +74,27 @@
           </div>
           <div class="panel">
             <div class="panel-title">Organizing into libraries</div>
-            <label class="check"><input type="checkbox" id="wzOrganize" checked /> <b>Organize</b> the extracted files into clean per-service libraries</label>
+            <label class="check"><input type="checkbox" id="wzOrganize" checked /><span><b>Organize</b> the extracted files into clean per-service libraries</span></label>
             <label><span class="muted">Library folder</span>
               <div class="inline"><input id="wzLibrary" type="text" placeholder="(next to the Takeout folder)" /><button id="wzLibraryBrowse" class="btn small">choose…</button></div>
             </label>
             <div class="checks" id="wzPhotoOpts">
               <div class="panel-title">Google Photos</div>
-              <label class="check"><input type="checkbox" id="wzPhotos" checked /> Build a Photos library</label>
-              <label class="check"><input type="checkbox" id="wzDates" checked /> Set each file's date from Google's JSON (taken time)</label>
-              <label class="check"><input type="checkbox" id="wzExif" checked /> Write the taken time into EXIF for JPEGs that lack it</label>
-              <label class="check"><input type="checkbox" id="wzYearMonth" checked /> Sort into Year/Month folders; albums listed in <span class="mono">Albums.txt</span></label>
-              <label class="check"><input type="checkbox" id="wzDedupe" checked /> Remove duplicates (same photo in several albums), keeping one</label>
+              <label class="check"><input type="checkbox" id="wzPhotos" checked /><span>Build a Photos library</span></label>
+              <label class="check"><input type="checkbox" id="wzDates" checked /><span>Set each file's date from Google's JSON (taken time)</span></label>
+              <label class="check"><input type="checkbox" id="wzExif" checked /><span>Write the taken time into EXIF for JPEGs that lack it</span></label>
+              <label class="check"><input type="checkbox" id="wzYearMonth" checked /><span>Sort into Year/Month folders; albums listed in <span class="mono">Albums.txt</span></span></label>
+              <label class="check"><input type="checkbox" id="wzDedupe" checked /><span>Remove duplicates (same photo in several albums), keeping one</span></label>
               <label><span class="muted">JSON sidecars after use</span>
                 <select id="wzSidecars"><option value="json">Move into Photos/_json</option><option value="keep">Leave where they are</option><option value="remove">Recycle Bin</option></select>
               </label>
             </div>
             <div class="checks" id="wzServiceOpts">
               <div class="panel-title">Other services</div>
-              <label class="check"><input type="checkbox" id="wzServices" checked /> Move Drive, Mail, Contacts, Calendar, YouTube and everything else into the library, one folder per service</label>
+              <label class="check"><input type="checkbox" id="wzServices" checked /><span>Move Drive, Mail, Contacts, Calendar, YouTube and everything else into the library, one folder per service</span></label>
               <div id="wzServiceList" class="wz-services"></div>
             </div>
-            <label class="check"><input type="checkbox" id="wzLog" checked /> Write an export log at the top: <span class="mono">What's in here.txt</span> (a short summary) and <span class="mono">Contents.csv</span> (every file). Folders are left as they are.</label>
+            <label class="check"><input type="checkbox" id="wzLog" checked /><span>Write an export log at the top: <span class="mono">What's in here.txt</span> (a short summary) and <span class="mono">Contents.csv</span> (every file). Folders are left as they are.</span></label>
           </div>
         </div>
       </section>
@@ -155,8 +155,8 @@
           <div class="panel" id="scExtractPanel">
             <div class="panel-title">Extracting</div>
             <div class="checks">
-              <label class="check"><input type="checkbox" id="scVerify" checked /> Check every download for damage first</label>
-              <label class="check"><input type="checkbox" id="scTrashParts" /> Recycle-Bin the downloaded files when everything succeeded</label>
+              <label class="check"><input type="checkbox" id="scVerify" checked /><span>Check every download for damage first</span></label>
+              <label class="check"><input type="checkbox" id="scTrashParts" /><span>Recycle-Bin the downloaded files when everything succeeded</span></label>
             </div>
           </div>
           <div class="panel">
@@ -165,12 +165,12 @@
               <div class="inline"><input id="scLibrary" type="text" placeholder="(inside the extracted folder)" /><button id="scLibraryBrowse" class="btn small">choose…</button></div>
             </label>
             <div class="checks">
-              <label class="check"><input type="checkbox" id="scYearMonth" checked /> Sort into Year/Month folders</label>
-              <label class="check"><input type="checkbox" id="scRename" checked /> Rename files to the time they were taken <span class="muted">(2024-07-01_153045.jpg)</span></label>
-              <label class="check"><input type="checkbox" id="scDates" checked /> Set each file's date to the time it was taken</label>
-              <label class="check"><input type="checkbox" id="scExif" checked /> Write the taken time into each photo (EXIF)</label>
-              <label class="check"><input type="checkbox" id="scGps" checked /> Write the place into each photo (EXIF position) when Snapchat recorded one</label>
-              <label class="check"><input type="checkbox" id="scLog" checked /> Write an export log at the top: <span class="mono">What's in here.txt</span> (a short summary) and <span class="mono">Contents.csv</span> (every file). Folders are left as they are.</label>
+              <label class="check"><input type="checkbox" id="scYearMonth" checked /><span>Sort into Year/Month folders</span></label>
+              <label class="check"><input type="checkbox" id="scRename" checked /><span>Rename files to the time they were taken <span class="muted">(2024-07-01_153045.jpg)</span></span></label>
+              <label class="check"><input type="checkbox" id="scDates" checked /><span>Set each file's date to the time it was taken</span></label>
+              <label class="check"><input type="checkbox" id="scExif" checked /><span>Write the taken time into each photo (EXIF)</span></label>
+              <label class="check"><input type="checkbox" id="scGps" checked /><span>Write the place into each photo (EXIF position) when Snapchat recorded one</span></label>
+              <label class="check"><input type="checkbox" id="scLog" checked /><span>Write an export log at the top: <span class="mono">What's in here.txt</span> (a short summary) and <span class="mono">Contents.csv</span> (every file). Folders are left as they are.</span></label>
             </div>
             <label><span class="muted">Overlays (captions and stickers saved as separate pictures)</span>
               <select id="scOverlays">
@@ -259,15 +259,15 @@
           </div>
 
           <div class="checks">
-            <label class="check"><input type="checkbox" id="optSmart" checked /> Smart compress: analyze what was dropped and suggest a format, size limit and manifest before packing</label>
-            <label class="check"><input type="checkbox" id="optOnePerItem" /> One archive per dropped item</label>
-            <label class="check"><input type="checkbox" id="optDeleteOriginal" /> After converting, move the original to the Recycle Bin (only after a passed verify)</label>
+            <label class="check"><input type="checkbox" id="optSmart" checked /><span>Smart compress: analyze what was dropped and suggest a format, size limit and manifest before packing</span></label>
+            <label class="check"><input type="checkbox" id="optOnePerItem" /><span>One archive per dropped item</span></label>
+            <label class="check"><input type="checkbox" id="optDeleteOriginal" /><span>After converting, move the original to the Recycle Bin (only after a passed verify)</span></label>
           </div>
 
           <div class="outrow">
             <span>Output:</span>
-            <label class="check"><input type="radio" name="outMode" value="beside" checked /> next to the source</label>
-            <label class="check"><input type="radio" name="outMode" value="folder" /> in folder</label>
+            <label class="check"><input type="radio" name="outMode" value="beside" checked /><span>next to the source</span></label>
+            <label class="check"><input type="radio" name="outMode" value="folder" /><span>in folder</span></label>
             <button id="btnOutDir" class="btn small">choose…</button>
             <span id="outDirLabel" class="muted mono"></span>
           </div>
@@ -324,8 +324,8 @@
           </label>
         </div>
         <div class="checks">
-          <label class="check"><input type="checkbox" id="convSkipSame" checked /> Skip archives already in the target format</label>
-          <label class="check"><input type="checkbox" id="convDelete" /> Move originals to the Recycle Bin after a passed verify</label>
+          <label class="check"><input type="checkbox" id="convSkipSame" checked /><span>Skip archives already in the target format</span></label>
+          <label class="check"><input type="checkbox" id="convDelete" /><span>Move originals to the Recycle Bin after a passed verify</span></label>
         </div>
         <div class="modal-actions">
           <button id="convCancel" class="btn ghost">Cancel</button>
@@ -375,8 +375,8 @@
           </label>
         </div>
         <div class="checks">
-          <label class="check"><input type="checkbox" id="pkManifest" /> Write a manifest: a text file listing every file, its size, date and which archive holds it. Archives and manifest share an 8-character ID in their names, and a copy rides inside each archive.</label>
-          <label class="check" id="pkHashRow"><input type="checkbox" id="pkHash" /> Include SHA-256 of every file in the manifest <span class="muted">(reads everything once more; lets "Verify a manifest" prove the files are intact years later)</span></label>
+          <label class="check"><input type="checkbox" id="pkManifest" /><span>Write a manifest: a text file listing every file, its size, date and which archive holds it. Archives and manifest share an 8-character ID in their names, and a copy rides inside each archive.</span></label>
+          <label class="check" id="pkHashRow"><input type="checkbox" id="pkHash" /><span>Include SHA-256 of every file in the manifest <span class="muted">(reads everything once more; lets "Verify a manifest" prove the files are intact years later)</span></span></label>
           <label class="check" id="pkPlaceRow"><span>Manifest text file:</span>
             <select id="pkPlacement" style="width:auto">
               <option value="beside">beside the archives and inside each one</option>
@@ -442,8 +442,8 @@
               <option value="trash">Moved to the Recycle Bin</option>
             </select>
           </label>
-          <label class="check"><input type="checkbox" id="meSequential" checked /> One archive at a time <span class="muted">(they share a disk; parallel only thrashes it)</span></label>
-          <label class="check"><input type="checkbox" id="meLog" /> Write an export log at the top: <span class="mono">What's in here.txt</span> (a short summary) and <span class="mono">Contents.csv</span> (every file). Folders are left as they are. <span class="muted">(ticked automatically for more than five archives)</span></label>
+          <label class="check"><input type="checkbox" id="meSequential" checked /><span>One archive at a time <span class="muted">(they share a disk; parallel only thrashes it)</span></span></label>
+          <label class="check"><input type="checkbox" id="meLog" /><span>Write an export log at the top: <span class="mono">What's in here.txt</span> (a short summary) and <span class="mono">Contents.csv</span> (every file). Folders are left as they are. <span class="muted">(ticked automatically for more than five archives)</span></span></label>
         </div>
         <div class="modal-actions">
           <button id="meCancel" class="btn ghost">Cancel</button>
@@ -476,11 +476,11 @@
           </label>
         </div>
         <div class="checks">
-          <label class="check"><input type="checkbox" id="tkVerify" checked /> Check every download for damage before extracting anything <span class="muted">(finds a bad part now, not three hours in)</span></label>
-          <label class="check"><input type="checkbox" id="tkResume" checked /> Skip parts that were already extracted into this folder by an earlier run</label>
-          <label class="check"><input type="checkbox" id="tkFlatten" /> Remove the <span class="mono">Takeout/</span> wrapper so the services sit directly in the folder</label>
-          <label class="check"><input type="checkbox" id="tkJson" /> Move Google Photos JSON sidecars into <span class="mono">_json</span> folders <span class="muted">(leave off if you plan to run a metadata tool on the photos)</span></label>
-          <label class="check"><input type="checkbox" id="tkTrash" /> Move the downloaded parts to the Recycle Bin when the whole export succeeded</label>
+          <label class="check"><input type="checkbox" id="tkVerify" checked /><span>Check every download for damage before extracting anything <span class="muted">(finds a bad part now, not three hours in)</span></span></label>
+          <label class="check"><input type="checkbox" id="tkResume" checked /><span>Skip parts that were already extracted into this folder by an earlier run</span></label>
+          <label class="check"><input type="checkbox" id="tkFlatten" /><span>Remove the <span class="mono">Takeout/</span> wrapper so the services sit directly in the folder</span></label>
+          <label class="check"><input type="checkbox" id="tkJson" /><span>Move Google Photos JSON sidecars into <span class="mono">_json</span> folders <span class="muted">(leave off if you plan to run a metadata tool on the photos)</span></span></label>
+          <label class="check"><input type="checkbox" id="tkTrash" /><span>Move the downloaded parts to the Recycle Bin when the whole export succeeded</span></label>
         </div>
         <p id="tkSpace" class="muted"></p>
         <div class="modal-actions">
@@ -536,13 +536,13 @@
           </label>
         </div>
         <div class="checks">
-          <label class="check"><input type="checkbox" id="setVerify" /> Test every archive after creating or converting it (recommended)</label>
-          <label class="check"><input type="checkbox" id="setHighRatio" /> Allow extreme compression ratios (turns off the zip-bomb refusal)</label>
-          <label class="check"><input type="checkbox" id="setAllowLinks" /> Allow archives that contain links (symbolic links, junctions) <span class="muted">— off by default because a link can point outside the folder you extract to</span></label>
-          <label class="check"><input type="checkbox" id="setPreventSleep" /> Keep the PC awake while jobs run</label>
-          <label class="check"><input type="checkbox" id="setCloseToTray" /> The close button hides to the tray while jobs run, without asking</label>
-          <label class="check"><input type="checkbox" id="setContextMenu" /> Add "Add to archive / Extract here / Convert" to the Explorer right-click menu <span class="muted">(Windows 11: under "Show more options")</span></label>
-          <label class="check"><input type="checkbox" id="setAutoUpdate" /> Update automatically from GitHub Releases</label>
+          <label class="check"><input type="checkbox" id="setVerify" /><span>Test every archive after creating or converting it (recommended)</span></label>
+          <label class="check"><input type="checkbox" id="setHighRatio" /><span>Allow extreme compression ratios (turns off the zip-bomb refusal)</span></label>
+          <label class="check"><input type="checkbox" id="setAllowLinks" /><span>Allow archives that contain links (symbolic links, junctions) <span class="muted">— off by default because a link can point outside the folder you extract to</span></span></label>
+          <label class="check"><input type="checkbox" id="setPreventSleep" /><span>Keep the PC awake while jobs run</span></label>
+          <label class="check"><input type="checkbox" id="setCloseToTray" /><span>The close button hides to the tray while jobs run, without asking</span></label>
+          <label class="check"><input type="checkbox" id="setContextMenu" /><span>Add "Add to archive / Extract here / Convert" to the Explorer right-click menu <span class="muted">(Windows 11: under "Show more options")</span></span></label>
+          <label class="check"><input type="checkbox" id="setAutoUpdate" /><span>Update automatically from GitHub Releases</span></label>
         </div>
         <h3 class="section-title">Updates</h3>
         <div class="panel">

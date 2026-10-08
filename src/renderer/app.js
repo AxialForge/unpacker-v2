@@ -284,10 +284,6 @@ function wireUi() {
 
   // password modal
   $("pwOk").addEventListener("click", submitPassword);
-  $("pwInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") submitPassword();
-    if (e.key === "Escape") skipPassword();
-  });
   $("pwCancel").addEventListener("click", skipPassword);
 
   // convert modal
@@ -830,3 +826,30 @@ function fmtDuration(ms) {
 }
 
 boot();
+
+// Dialog keys: Escape = the ghost (cancel) button, Enter = the accent (main) button
+// of whichever modal is open. Focus moves into the dialog when it opens.
+(() => {
+  const openModal = () => [...document.querySelectorAll(".modal")].find((m) => !m.hidden);
+  document.addEventListener("keydown", (e) => {
+    const m = openModal();
+    if (!m) return;
+    if (e.key === "Escape") {
+      const b = m.querySelector(".modal-actions .btn.ghost");
+      if (b && !b.disabled) { e.preventDefault(); b.click(); }
+    } else if (e.key === "Enter" && !["TEXTAREA", "SELECT"].includes(e.target.tagName) && e.target.tagName !== "BUTTON") {
+      const b = m.querySelector(".modal-actions .btn.accent");
+      if (b && !b.disabled) { e.preventDefault(); b.click(); }
+    }
+  });
+  const mo = new MutationObserver((muts) => {
+    for (const mu of muts) {
+      const m = mu.target;
+      if (!m.hidden) {
+        const f = m.querySelector("input:not([type=checkbox]):not([type=radio]), select, textarea, .modal-actions .btn.accent");
+        if (f && !m.contains(document.activeElement)) f.focus();
+      }
+    }
+  });
+  for (const m of document.querySelectorAll(".modal")) mo.observe(m, { attributes: true, attributeFilter: ["hidden"] });
+})();

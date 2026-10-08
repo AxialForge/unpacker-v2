@@ -77,6 +77,7 @@ function handleCli(requests) {
 // ── window ──────────────────────────────────────────────────────
 
 function createWindow() {
+  Menu.setApplicationMenu(null); // no hidden Alt menu bar (File/View/DevTools)
   mainWindow = new BrowserWindow({
     width: 1040,
     height: 720,
