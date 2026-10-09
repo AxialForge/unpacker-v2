@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.1] - 2026-10-09
+
+### Fixed
+
+- Snapchat: the frames of a multi-snap (several files Snapchat saved under
+  one record, all in the same second) were left unmatched after the first
+  one took the record, so they got no place and showed as "not matched".
+  They now share the record. On a real export this turned 28 unmatched
+  files into 0 and wrote 17 more positions.
+
 ## [0.5.0] - 2026-10-09
 
 ### Added

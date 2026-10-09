@@ -100,11 +100,15 @@ function parseHistory(json) {
 
 /**
  * Pair files with records on (time to the second, type).
- * files: [{ name, time (epoch seconds), type }]. Each record is used once.
- * @returns {{ pairs: Map<name, record>, unmatchedFiles: string[], unusedRecords: record[] }}
+ * files: [{ name, time (epoch seconds), type }]. Each record is used once,
+ * except that a multi-snap (several files Snapchat saved under ONE record,
+ * all in the same second) shares that record: the time and place are the
+ * same for every frame. Real exports had 28 such files among 964.
+ * @returns {{ pairs: Map<name, record>, unmatchedFiles: string[], unusedRecords: record[], shared: number }}
  */
 function matchRecords(files, records) {
   const pool = new Map();
+  const used = new Map(); // key -> records already handed out, for multi-snaps
   for (const r of records) {
     const k = `${r.time}|${r.type}`;
     if (!pool.has(k)) pool.set(k, []);
@@ -112,19 +116,31 @@ function matchRecords(files, records) {
   }
   const pairs = new Map();
   const unmatchedFiles = [];
+  let shared = 0;
   for (const f of [...files].sort((a, b) => a.name.localeCompare(b.name))) {
     let rec = null;
     for (const d of [0, 1, -1, 2, -2]) {
-      const q = pool.get(`${f.time + d}|${f.type}`);
+      const k = `${f.time + d}|${f.type}`;
+      const q = pool.get(k);
       if (q && q.length) {
         rec = q.shift();
+        if (!used.has(k)) used.set(k, []);
+        used.get(k).push(rec);
         break;
+      }
+    }
+    if (!rec) {
+      // same second, same type, record already taken: a frame of a multi-snap
+      const u = used.get(`${f.time}|${f.type}`);
+      if (u && u.length) {
+        rec = u[0];
+        shared += 1;
       }
     }
     if (rec) pairs.set(f.name, rec);
     else unmatchedFiles.push(f.name);
   }
-  return { pairs, unmatchedFiles, unusedRecords: [...pool.values()].flat().sort((a, b) => a.time - b.time) };
+  return { pairs, unmatchedFiles, unusedRecords: [...pool.values()].flat().sort((a, b) => a.time - b.time), shared };
 }
 
 /** "2024-07-01_153045" from epoch seconds (UTC). */
@@ -215,8 +231,9 @@ async function organize(stage, options = {}, ctx, deps = {}) {
     }
   }
   rep.media = mains.length;
-  const { pairs, unmatchedFiles, unusedRecords } = matchRecords(mains, records);
+  const { pairs, unmatchedFiles, unusedRecords, shared } = matchRecords(mains, records);
   rep.matched = pairs.size;
+  rep.sharedRecords = shared;
   rep.unmatched = unmatchedFiles.length;
   rep.missingRecords = unusedRecords.length;
 
@@ -338,7 +355,7 @@ async function organize(stage, options = {}, ctx, deps = {}) {
     `library: ${library}`,
     "",
     `Memories: ${rep.media} files (${rep.photos} photos, ${rep.videos} videos)`,
-    `  matched to Snapchat's list: ${rep.matched}; not matched: ${rep.unmatched}`,
+    `  matched to Snapchat's list: ${rep.matched} (${rep.sharedRecords} frames of multi-snaps share a record); not matched: ${rep.unmatched}`,
     `  with a position: ${rep.withLocation}; dates set: ${rep.dated}; EXIF dates written: ${rep.exifWritten}; EXIF positions written: ${rep.gpsWritten}`,
     `  overlays: ${rep.overlays} paired, ${rep.orphanOverlays} without a photo (${o.overlays})${o.burn ? `; ${rep.burned} photos written with the overlay burned in` : ""}`,
     `  listed by Snapchat but not in this export: ${rep.missingRecords}`,

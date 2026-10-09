@@ -60,9 +60,12 @@ test("matchRecords pairs on time and type, each record once", () => {
     { name: "b.jpg", time: t + 1, type: "jpg" }, // one second off still matches
     { name: "c.mp4", time: t, type: "mp4" },
     { name: "d.jpg", time: t + 9000, type: "jpg" }, // no record
+    { name: "e.mp4", time: t, type: "mp4" }, // second frame of a multi-snap: shares c's record
   ];
   const r = sc.matchRecords(files, records);
-  assert.equal(r.pairs.size, 3);
+  assert.equal(r.pairs.size, 4);
+  assert.equal(r.pairs.get("e.mp4"), r.pairs.get("c.mp4"), "a multi-snap frame reuses the record of the same second");
+  assert.equal(r.shared, 1);
   assert.deepEqual(r.pairs.get("a.jpg").gps, { lat: 1, lon: 1 });
   assert.deepEqual(r.pairs.get("b.jpg").gps, { lat: 2, lon: 2 });
   assert.equal(r.pairs.get("c.mp4").type, "mp4");

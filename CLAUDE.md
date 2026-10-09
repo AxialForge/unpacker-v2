@@ -225,6 +225,10 @@ Nothing else needs to change: the renderer reads `targets` from `app:info`.
 - **`hidden` did not hide a tab pane.** `.layout { display: grid }` outranks
   the UA `[hidden] { display: none }`, so both tabs rendered at once.
   `styles.css` now has `[hidden] { display: none !important }`; keep it.
+- **Multi-snaps share one record.** Several memory files can carry the same
+  zip timestamp and type with only ONE record in memories_history.json (a
+  multi-snap). `matchRecords` hands the used record to the extra frames
+  instead of leaving them unmatched (28 of 964 on a real export).
 - **Snapchat's JSON has no file id.** `json/memories_history.json` lists
   Date, type and position but nothing that names a file, and the file names
   carry only the day. The link is the file's timestamp inside the zip, which
