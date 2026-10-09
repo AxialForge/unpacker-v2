@@ -160,13 +160,18 @@ const DEFAULTS = {
   exif: true, // write DateTimeOriginal into JPEGs
   gps: true, // write the position into JPEGs
   overlays: "beside", // "beside" | "folder" | "leave"
+  burn: false, // also write <stem>_with overlay.jpg: the overlay composited onto the photo (needs deps.composite)
 };
 
 /**
  * Turn an extracted export folder into a library.
  * @param {string} stage folder holding json/, memories/, html/, index.html
  */
-async function organize(stage, options = {}, ctx) {
+/**
+ * @param {object} deps { composite(photoPath, overlayPath) -> Promise<Buffer jpeg> } (optional; the
+ *   Electron main process provides one that draws both pictures on a canvas)
+ */
+async function organize(stage, options = {}, ctx, deps = {}) {
   const o = { ...DEFAULTS, ...options };
   const abort = () => {
     if (ctx.signal && ctx.signal.aborted) throw Object.assign(new Error("Cancelled"), { kind: "cancelled" });
@@ -175,7 +180,7 @@ async function organize(stage, options = {}, ctx) {
   const library = path.resolve(o.library || path.join(stage, "Snapchat Library"));
   const memOut = path.join(library, "Memories");
   fs.mkdirSync(memOut, { recursive: true });
-  const rep = { library, media: 0, photos: 0, videos: 0, matched: 0, unmatched: 0, dated: 0, exifWritten: 0, gpsWritten: 0, withLocation: 0, overlays: 0, orphanOverlays: 0, missingRecords: 0, otherSections: [] };
+  const rep = { library, media: 0, photos: 0, videos: 0, matched: 0, unmatched: 0, dated: 0, exifWritten: 0, gpsWritten: 0, withLocation: 0, overlays: 0, orphanOverlays: 0, burned: 0, missingRecords: 0, otherSections: [] };
 
   // records
   ctx.stage("Snapchat: reading the memories list");
@@ -266,16 +271,34 @@ async function organize(stage, options = {}, ctx) {
     if (ov) {
       overlays.delete(f.uuid);
       rep.overlays += 1;
+      const tStem = path.basename(target).replace(/\.[^.]+$/, "");
+      let ovPath = ov;
       if (o.overlays !== "leave") {
-        const tStem = path.basename(target).replace(/\.[^.]+$/, "");
         const ovDir = o.overlays === "folder" ? path.join(memOut, "Overlays", path.relative(memOut, path.dirname(target))) : path.dirname(target);
-        const ovTarget = await moveFile(ov, path.join(ovDir, `${tStem}_overlay.png`));
+        ovPath = await moveFile(ov, path.join(ovDir, `${tStem}_overlay.png`));
         try {
-          fs.utimesSync(ovTarget, when, when);
+          fs.utimesSync(ovPath, when, when);
         } catch {
           /* fine */
         }
-        overlayRel = path.relative(library, ovTarget).replace(/\\/g, "/");
+        overlayRel = path.relative(library, ovPath).replace(/\\/g, "/");
+      }
+      // A finished picture with the caption or sticker on it, beside the
+      // untouched original. Photos only; a video needs a video encoder.
+      if (o.burn && f.type === "jpg" && deps.composite) {
+        try {
+          let buf = await deps.composite(target, ovPath);
+          if (o.exif) {
+            const r = exif.setDateTaken(buf, when, { gps: o.gps ? gps : null });
+            if (r.written) buf = r.buf;
+          }
+          const burned = path.join(path.dirname(target), `${tStem}_with overlay.jpg`);
+          fs.writeFileSync(burned, buf);
+          if (o.dates) fs.utimesSync(burned, when, when);
+          rep.burned += 1;
+        } catch (err) {
+          ctx.warn(`Overlay not burned into ${path.basename(target)}: ${err.message}`);
+        }
       }
     }
     index.push([path.relative(library, target).replace(/\\/g, "/"), when.toISOString().replace(/\.\d{3}Z$/, "Z"), f.type === "jpg" ? "photo" : "video", gps ? String(gps.lat) : "", gps ? String(gps.lon) : "", overlayRel, rec ? "yes" : "no"]);
@@ -317,7 +340,7 @@ async function organize(stage, options = {}, ctx) {
     `Memories: ${rep.media} files (${rep.photos} photos, ${rep.videos} videos)`,
     `  matched to Snapchat's list: ${rep.matched}; not matched: ${rep.unmatched}`,
     `  with a position: ${rep.withLocation}; dates set: ${rep.dated}; EXIF dates written: ${rep.exifWritten}; EXIF positions written: ${rep.gpsWritten}`,
-    `  overlays: ${rep.overlays} paired, ${rep.orphanOverlays} without a photo (${o.overlays})`,
+    `  overlays: ${rep.overlays} paired, ${rep.orphanOverlays} without a photo (${o.overlays})${o.burn ? `; ${rep.burned} photos written with the overlay burned in` : ""}`,
     `  listed by Snapchat but not in this export: ${rep.missingRecords}`,
     `Chats: ${rep.account.conversations} conversations, ${rep.account.messages.toLocaleString("en-US")} messages, ${rep.account.chatMedia} pictures and videos (${rep.account.chatMediaLinked} placed with their conversation)`,
     `Snaps logged: ${rep.account.snaps}; friend lists: ${rep.account.friendsLists}; story records: ${rep.account.stories}; location points: ${rep.account.locations}`,

@@ -411,6 +411,7 @@ module.exports = [
       c("scExif", "Write the taken time into each photo (EXIF)", "Check box", "Embeds the date inside JPEG photos.", "On or off", "On", "JPEG only."),
       c("scGps", "Write the place into each photo (EXIF position)", "Check box", "Embeds the latitude and longitude Snapchat recorded for the memory.", "On or off", "On", "Only when the record has a position; not written into videos."),
       c("scLog", "Write an export log at the top", "Check box", "Writes What's in here.txt and Contents.csv at the top of the library.", "On or off", "On", "See “The export log”."),
+      c("scBurn", "Also save a copy of each photo with its caption or sticker burned in", "Check box", "Writes …_with overlay.jpg beside the untouched original, composited from the photo and its overlay, with the same taken time and place in EXIF.", "On or off", "Off", "Photos only; a video would need a video encoder."),
       c("scOverlays", "Overlays", "Drop-down list", "What to do with captions and stickers Snapchat saves as separate pictures: keep each next to its photo or video, move them into an Overlays folder, or leave them in the extracted folder.", "Three choices", "Keep each next to its photo or video", ""),
       c("scBack", "Back", "Button", "Returns to step 1.", "Click", "", ""),
       c("scNext", "Start", "Button", "Queues the job and moves to Run.", "Click", "", "Nothing is written before this button is pressed."),

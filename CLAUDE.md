@@ -79,7 +79,7 @@ renderer/app.js --window.unpacker (preload, IPC invoke)--> main.js
                                                            ├─ snapchat.js          Snapchat My Data: part grouping, record matching by zip timestamp, Memories library
                                                            ├─ snapchat-account.js  Snapchat chats, chat media, snaps, friends, stories, location; merges copies across exports
                                                            ├─ library.js          Library page data: roots by id, safe resolve, list/read/search; unp:// protocol uses resolve
-                                                           ├─ exportlog.js         optional "What's in here.txt" + Contents.csv; describes, never moves
+                                                           ├─ exportlog.js         optional "What's in here.txt" + .html overview + Contents.csv; describes, never moves
                                                            ├─ organize.js          Takeout tree -> per-service libraries (Photos dates/EXIF/YearMonth/dedupe)
                                                            ├─ exif.js              minimal JPEG EXIF DateTimeOriginal writer (insert or overwrite in place)
                                                            ├─ scan.js              scanFolder / collectArchives (shared by mass convert, mass extract, nested)

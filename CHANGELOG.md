@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-10-09
+
+### Added
+
+- Snapchat: "Also save a copy of each photo with its caption or sticker
+  burned in" writes `…_with overlay.jpg` beside the untouched original, with
+  the taken time and place in EXIF. Photos only.
+- Export log: `What's in here.html` beside the text log, a self-contained
+  page with the folder table and every file behind a search box and a kind
+  filter. The batch card's "What's in here" button opens it.
+
 ## [0.4.0] - 2026-10-08
 
 ### Added

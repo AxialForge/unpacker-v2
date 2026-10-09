@@ -194,6 +194,9 @@ choose the options and press Start.
 
 - Memories are sorted into `Snapchat Library/Memories/YYYY/MM` and renamed
   to the time they were taken (`2024-07-01_153045.jpg`).
+- Optionally a copy of each photo with its caption or sticker burned in is
+  saved beside the untouched original as `…_with overlay.jpg` (photos only;
+  it carries the same taken time and place).
 - Each photo gets its taken time and, when Snapchat recorded one, its place
   written into the file (EXIF). Videos get the right file date only.
 - Overlays (captions and stickers Snapchat saves as separate pictures) stay
@@ -246,6 +249,9 @@ and moves nothing:
   extracted and which failed, and where the source archives went.
 - `Contents.csv` — every file with its folder, size, date, kind and the
   archive it came from. Open it in Excel to search or filter.
+- `What's in here.html` — the same as a page you can open in any browser:
+  the folder table, and every file with a search box and a kind filter.
+  Self-contained; it loads nothing from the internet.
 
 In Mass extract the box ticks itself when more than five archives are
 selected. The batch card gets a “What's in here” button when the log exists.

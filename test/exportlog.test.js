@@ -41,7 +41,13 @@ test("write describes the folders without moving anything", () => {
     });
     assert.equal(r.files, 4, "nested root is not counted twice; the archive and report outside the roots are not listed");
     assert.equal(r.bytes, 5 + 10 + 3 + 3);
-    assert.deepEqual(fs.readdirSync(d).sort(), [...before, log.CONTENTS, log.SUMMARY].sort(), "only the two log files were added");
+    assert.deepEqual(fs.readdirSync(d).sort(), [...before, log.CONTENTS, log.OVERVIEW, log.SUMMARY].sort(), "only the three log files were added");
+    const h = fs.readFileSync(r.overview, "utf8");
+    assert.match(h, /<title>Old backups - extracted archives<\/title>/);
+    assert.match(h, /<b>4 files<\/b>, <b>21 B<\/b>/);
+    assert.match(h, /\["alpha\/Trip","IMG_1\.jpg",5,"2024-03-05","Photos","alpha\.zip"\]/, "every file is embedded for the search box");
+    assert.match(h, /broken\.rar: failed \(Unexpected end of archive\)/);
+    assert.ok(!/<script src=|<link /.test(h), "self-contained: nothing fetched from anywhere");
     const s = fs.readFileSync(r.summary, "utf8");
     assert.match(s, /^Old backups - extracted archives\r\n=+\r\n/);
     assert.match(s, /This folder holds 4 files, 21 B in total: 1 photos, 1 videos, 2 documents\./);
@@ -58,7 +64,7 @@ test("write describes the folders without moving anything", () => {
     assert.match(c, /beta,report\.pdf,3,[^,]+,Documents,beta\.7z/);
     // running it again does not list its own files
     const again = log.write({ dir: d, title: "x", roots: [{ path: d }], skip: new Set([path.join(d, "alpha.zip").toLowerCase()]) });
-    assert.equal(again.files, 5, "whole folder: 4 files + the report, minus the skipped archive and the two log files");
+    assert.equal(again.files, 5, "whole folder: 4 files + the report, minus the skipped archive and the three log files");
   } finally {
     fs.rmSync(d, { recursive: true, force: true });
   }

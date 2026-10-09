@@ -27,8 +27,10 @@ class Runner {
    * @param {() => object} deps.settings   returns the current settings object
    * @param {(p:string) => Promise<void>} deps.trash  move a path to the Recycle Bin
    */
-  constructor({ sevenZip, rar, settings, trash, spawn }) {
+  constructor({ sevenZip, rar, settings, trash, spawn, composite }) {
     this.sevenZip = sevenZip;
+    // composite(photoPath, overlayPath) -> JPEG buffer; provided by the Electron main process.
+    this.composite = composite || null;
     this.rar = rar || null;
     this.settings = settings;
     this.trash = trash || (async (p) => fsp.rm(p, { recursive: true, force: true }));
@@ -867,7 +869,7 @@ class Runner {
     }
     const from = o.extracted ? 0 : 55;
     const sub = { ...ctx, progress: ({ percent, file }) => ctx.progress({ percent: from + ((100 - from) * (percent || 0)) / 100, file }) };
-    const result = await snapchat.organize(stage, o.organize || {}, sub);
+    const result = await snapchat.organize(stage, o.organize || {}, sub, { composite: this.composite });
     if (!o.extracted && o.trashParts) {
       ctx.stage("Moving the downloaded parts to the Recycle Bin");
       for (const p of job.inputs) await this.trash(path.resolve(p));

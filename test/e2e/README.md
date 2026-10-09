@@ -15,6 +15,7 @@ folder, and two of them read a real export.
     node test/e2e/e2e-snapchat.js        # fake Snapchat export (A) + a slice of a real one (B)
     node test/e2e/e2e-snapchat-real.js   # BOTH real Snapchat exports, combined (counts only)
     node test/e2e/e2e-library.js         # Library page screenshots (needs docs/_tools npm install)
+    node test/e2e/e2e-snapchat-burn.js   # overlay burn-in through the real app window (needs docs/_tools npm install)
 
 Real-data scripts read `UNP_SNAPCHAT_DIR` / `UNP_TAKEOUT_DIR` (defaults are
 the author's drives). They open the sources read-only, work in a temp copy,

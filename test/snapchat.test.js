@@ -153,3 +153,48 @@ test("organize refuses a folder that is not a Snapchat export", async () => {
     fs.rmSync(d, { recursive: true, force: true });
   }
 });
+
+test("organize burns the overlay into a copy of the photo when asked and a compositor is available", async () => {
+  const stage = fs.mkdtempSync(path.join(os.tmpdir(), "unp-snap-burn-"));
+  try {
+    const t = Date.UTC(2024, 6, 1, 15, 30, 45) / 1000;
+    const put = (rel, data) => {
+      const p = path.join(stage, rel);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, data);
+      fs.utimesSync(p, new Date(t * 1000), new Date(t * 1000));
+    };
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]), Buffer.from("JFIF\0\x01\x01\0\0\x01\0\x01\0\0", "latin1"), Buffer.from([0xff, 0xda, 0x00, 0x02]), Buffer.alloc(64, 1), Buffer.from([0xff, 0xd9])]);
+    const uuid = "00000000-0000-4000-8000-000000000001";
+    put(`memories/2024-07-01_${uuid}-main.jpg`, jpeg);
+    put(`memories/2024-07-01_${uuid}-overlay.png`, "png");
+    put("json/memories_history.json", JSON.stringify({ "Saved Media": [{ Date: "2024-07-01 15:30:45 UTC", "Media Type": "Image", Location: "Latitude, Longitude: 41.5, -81.6" }] }));
+    put("index.html", "<html></html>");
+    const calls = [];
+    const composite = async (photo, overlay) => {
+      calls.push([path.basename(photo), path.basename(overlay)]);
+      return jpeg; // a "composited" picture without EXIF
+    };
+    const r = await sc.organize(stage, { burn: true }, { stage() {}, progress() {}, warn: (w) => assert.fail(w) }, { composite });
+    const dir = path.join(r.output, "Memories", "2024", "07");
+    assert.deepEqual(calls, [["2024-07-01_153045.jpg", "2024-07-01_153045_overlay.png"]], "composited after the files were placed and renamed");
+    assert.ok(fs.existsSync(path.join(dir, "2024-07-01_153045.jpg")), "original kept");
+    const burned = fs.readFileSync(path.join(dir, "2024-07-01_153045_with overlay.jpg"));
+    assert.equal(exif.getDateTaken(burned), "2024:07:01 15:30:45", "the burned copy gets the taken time");
+    assert.deepEqual(exif.getGps(burned), { lat: 41.5, lon: -81.6 }, "and the position");
+    assert.equal(r.summary.burned, 1);
+    assert.match(fs.readFileSync(r.report, "utf8"), /1 photos written with the overlay burned in/);
+    // without a compositor nothing is burned and nothing fails
+    const stage2 = fs.mkdtempSync(path.join(os.tmpdir(), "unp-snap-burn2-"));
+    fs.mkdirSync(path.join(stage2, "memories"));
+    fs.mkdirSync(path.join(stage2, "json"));
+    fs.writeFileSync(path.join(stage2, "memories", `2024-07-01_${uuid}-main.jpg`), jpeg);
+    fs.writeFileSync(path.join(stage2, "memories", `2024-07-01_${uuid}-overlay.png`), "png");
+    fs.writeFileSync(path.join(stage2, "json", "memories_history.json"), JSON.stringify({ "Saved Media": [] }));
+    const r2 = await sc.organize(stage2, { burn: true }, { stage() {}, progress() {}, warn() {} });
+    assert.equal(r2.summary.burned, 0);
+    fs.rmSync(stage2, { recursive: true, force: true });
+  } finally {
+    fs.rmSync(stage, { recursive: true, force: true });
+  }
+});

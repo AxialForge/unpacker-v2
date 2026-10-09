@@ -140,6 +140,7 @@ function initQueue() {
     rar,
     settings: () => store.get(),
     trash: (p) => shell.trashItem(p),
+    composite,
     spawn: (spec) => {
       const j = queue.add(spec);
       if (spec.groupId) groups.attach(spec.groupId, j.id);
@@ -161,6 +162,34 @@ function initQueue() {
     finishedSeen.delete(id);
     if (mainWindow) mainWindow.webContents.send("jobs:removed", id);
   });
+}
+
+// ── picture compositing for Snapchat overlays ──
+// Node has no image decoder, so a hidden window draws the photo and the
+// overlay on a canvas and hands back a JPEG. Pictures travel as data: URLs;
+// the page is a blank data: document with no access to anything else.
+let compositor = null;
+const MIME = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" };
+async function composite(photoPath, overlayPath) {
+  if (!compositor || compositor.isDestroyed()) {
+    compositor = new BrowserWindow({ show: false, width: 64, height: 64, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, offscreen: true } });
+    await compositor.loadURL("data:text/html,<canvas id=c></canvas>");
+  }
+  const url = (p) => `data:${MIME[path.extname(p).slice(1).toLowerCase()] || "application/octet-stream"};base64,${fs.readFileSync(p).toString("base64")}`;
+  const out = await compositor.webContents.executeJavaScript(
+    `(async () => {
+      const load = (u) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("picture could not be decoded")); i.src = u; });
+      const a = await load(${JSON.stringify(url(photoPath))});
+      const b = await load(${JSON.stringify(url(overlayPath))});
+      const c = document.getElementById("c");
+      c.width = a.naturalWidth; c.height = a.naturalHeight;
+      const x = c.getContext("2d");
+      x.drawImage(a, 0, 0);
+      x.drawImage(b, 0, 0, c.width, c.height);
+      return c.toDataURL("image/jpeg", 0.92);
+    })()`
+  );
+  return Buffer.from(String(out).split(",")[1], "base64");
 }
 
 // ── finished jobs: optional notification + optional history (both off by default) ──

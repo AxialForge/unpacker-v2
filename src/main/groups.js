@@ -200,7 +200,7 @@ class GroupRegistry extends EventEmitter {
           notes,
           skip,
         });
-        g.exportLog = log.summary;
+        g.exportLog = log.overview;
       } catch {
         g.exportLog = null;
       }

@@ -95,7 +95,7 @@
       exports: r.exports.filter((e) => state.picked.exports.has(e.id)),
       folders: r.folders.filter((f) => state.picked.folders.has(f.root)).map((f) => f.root),
       extract: { dest: $("scDest").value.trim(), verifyFirst: $("scVerify").checked, trashParts: $("scTrashParts").checked },
-      organize: { library: $("scLibrary").value.trim(), yearMonth: $("scYearMonth").checked, rename: $("scRename").checked, dates: $("scDates").checked, exif: $("scExif").checked, gps: $("scGps").checked, overlays: $("scOverlays").value, exportLog: $("scLog").checked },
+      organize: { library: $("scLibrary").value.trim(), yearMonth: $("scYearMonth").checked, rename: $("scRename").checked, dates: $("scDates").checked, exif: $("scExif").checked, gps: $("scGps").checked, overlays: $("scOverlays").value, burn: $("scBurn").checked, exportLog: $("scLog").checked },
     });
     state.jobs = res.jobs;
     state.done = false;
