@@ -139,7 +139,14 @@ function friendlyError(err) {
  *                   apps; 0 disables the interval (launch-only check).
  * @param {boolean}  [opts.enabled]    pass a user setting; false disables.
  */
+/** Stop the periodic check (the Settings switch was turned off). */
+function stop() {
+  if (timer) clearInterval(timer);
+  timer = null;
+}
+
 function start(opts = {}) {
+  stop();
   const { app } = require("electron");
   if (typeof opts.onStatus === "function") onStatus(opts.onStatus);
 
@@ -197,6 +204,7 @@ function installNow() {
 }
 
 module.exports = {
+  stop,
   start,
   check,
   installNow,

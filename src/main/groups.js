@@ -91,7 +91,7 @@ class GroupRegistry extends EventEmitter {
       queued: count("queued"),
       needsPassword: count("needs-password"),
       finished: jobs.length > 0 && terminal === jobs.length,
-      allOk: jobs.length > 0 && count("done") === jobs.length,
+      allOk: jobs.length > 0 && count("done") === jobs.length && jobs.every((j) => !j.partial), // a job 7-Zip warned about keeps its source
       report: g.report,
       mergeDir: g.options.mergeDir,
       archivalDir: g.archivalDir || null,
@@ -228,6 +228,7 @@ async function moveTo(src, dst) {
   } catch (err) {
     if (err.code !== "EXDEV") throw err;
     await fs.promises.copyFile(src, target);
+    if ((await fs.promises.stat(target)).size !== (await fs.promises.stat(src)).size) throw new Error(`copy of ${path.basename(src)} is incomplete`);
     await fs.promises.unlink(src);
   }
   return target;

@@ -145,7 +145,7 @@ be a target only when WinRAR is installed.
 
 ## The Google Takeout tab
 
-The **Google Takeout** tab at the top of the window is a guided, four-step
+The **Google Takeout** page in the sidebar is a guided, four-step
 flow for the whole job: check the downloads, extract them, and organize the
 result into clean libraries.
 
@@ -338,6 +338,20 @@ The Explorer entries run these; you can too:
 - Passwords are visible on the 7-Zip or WinRAR command line while a job
   runs, like every archiver built on them. They never appear in the window's
   job list.
+- tar, tar.gz, tar.xz and tar.bz2 cannot be encrypted. A compress or convert
+  job with a password and one of those formats refuses to run and says so,
+  rather than writing an unencrypted archive.
+- A downloaded archive carries Windows' "from the Internet" mark. Files
+  extracted from it get the same mark, so SmartScreen and Office's Protected
+  View still ask before a program or document from it opens. Opening a
+  program from the Library page asks first as well.
+- If 7-Zip reports a problem with any file during extraction, the source
+  archive is kept even when you asked for it to be binned or moved.
+- CSV files the app writes (chats, friends, contents) are written so that a
+  message or file name starting with = + - or @ cannot run as a spreadsheet
+  formula.
+- Staging folders left behind by a crash are removed the next time the app
+  starts.
 - Inputs inside OneDrive, Google Drive, Dropbox or iCloud folders are checked
   file by file: the job warns how many are cloud-only placeholders and names
   the first few. Placeholders download as they are read, which can be very

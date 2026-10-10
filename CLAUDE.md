@@ -20,12 +20,19 @@ creator (see non-negotiables). It is deliberately separate from JDot Utilities.
   bundled (licence). `engine/rar.js` only *locates* it.
 - **Nothing destructive before a verify passes.** "Remove original" after
   convert runs only after `7z t` succeeds on the output and goes through
-  `shell.trashItem` (Recycle Bin), never `fs.rm`. Temp dirs are the only thing
-  hard-deleted, and only our own `UnpackerV2/<jobId>` folders.
+  `shell.trashItem` (Recycle Bin), never `fs.rm`. Hard-deleted: our own
+  `UnpackerV2/<jobId>` staging folders (and any left by a crash, at start-up),
+  half-written outputs of a cancelled or failed job, the optional history file,
+  and Google's `archive_browser.html` boilerplate. Google's `metadata.json`
+  is moved to `Photos/_json/<album>/`, never deleted. A job 7-Zip warned
+  about (`job.partial`) never bins its source.
 - **Refuse hostile archives up front.** `safety.unsafeEntries` (path
   traversal / rooted paths), `safety.linkEntries` (symlinks, junctions) and
-  `safety.bombRisk` run on the listing before extraction. The bomb and link
-  guards have user toggles; the traversal guard does not.
+  `safety.bombRisk` run on the listing before extraction, through
+  `Runner.inspect` for extract, convert, Takeout parts and Snapchat parts. The
+  bomb and link guards have user toggles; the traversal guard does not. A
+  listing the engine cut short (`truncated`) is refused rather than parsed as
+  empty.
 - **Passwords stay in the main process.** Queue snapshots and `jobs:list`
   go through `maskSecrets` (`"•"`), and anything that logs a 7-Zip command
   line uses `redactArgs`. They still appear on the 7-Zip/WinRAR command line
@@ -56,8 +63,8 @@ npx electron . --dev --screenshot docs/screenshots      # real captures for the 
 Explorer verbs from the command line (also what the context menu runs):
 
 ```
-Unpacker.exe --compress <paths...>     --extract-here <archive>
-             --extract-to <archive>    --convert <archive>    --test <archive>
+"Unpacker V2.exe" --compress <paths...>   --extract-here <archive>   --extract-to <archive>
+                  --convert <archive>      --test <archive>           --extract-all <folder>
 ```
 
 ## Architecture

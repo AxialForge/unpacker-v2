@@ -109,6 +109,18 @@ function cloudSyncRoot(p, env = process.env) {
 }
 
 /**
+ * One CSV cell. Quotes commas, quotes and line breaks. A cell that a
+ * spreadsheet would run as a formula (starts with = + - @ or a tab) is
+ * prefixed with an apostrophe, unless it is a plain number such as -81.6:
+ * chat text and file names come from other people.
+ */
+function csvCell(c) {
+  let s = String(c);
+  if (/^[=+\-@\t\r]/.test(s) && !/^[-+]?\d+(\.\d+)?$/.test(s)) s = `'${s}`;
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/**
  * Which of these inputs (files, or folders searched recursively) are cloud
  * placeholders that would have to download before they can be read? Windows
  * marks them with RECALL_ON_DATA_ACCESS / RECALL_ON_OPEN / OFFLINE. Node's
@@ -119,19 +131,21 @@ function cloudSyncRoot(p, env = process.env) {
 async function findPlaceholders(paths, { timeoutMs = 60000, sample = 12 } = {}) {
   if (process.platform !== "win32" || !paths.length) return null;
   const { execFile } = require("node:child_process");
-  const q = (p) => `'${String(p).replace(/'/g, "''")}'`;
+  // Paths are handed over in an environment variable, one per line, so no
+  // file name (quotes, typographic apostrophes, $(), backticks) can become code.
   const script = [
     "$ErrorActionPreference='SilentlyContinue'",
     "$m = 0x400000 -bor 0x40000 -bor 0x1000",
     "$n = 0",
-    `foreach ($p in @(${paths.map(q).join(",")})) {`,
+    "foreach ($p in ($env:UNPACKER_PATHS -split \"`n\")) {",
+    "  if ($p -eq '') { continue }",
     "  $items = if (Test-Path -LiteralPath $p -PathType Container) { Get-ChildItem -LiteralPath $p -Recurse -File -Force } else { Get-Item -LiteralPath $p -Force }",
     `  foreach ($f in $items) { if ($f.Attributes -band $m) { $n++; if ($n -le ${sample}) { $f.FullName } } }`,
     "}",
     "\"COUNT $n\"",
   ].join("; ");
   return new Promise((res) => {
-    execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script], { windowsHide: true, timeout: timeoutMs, maxBuffer: 1 << 20 }, (err, out) => {
+    execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script], { windowsHide: true, timeout: timeoutMs, maxBuffer: 1 << 20, env: { ...process.env, UNPACKER_PATHS: paths.map((p) => String(p).replace(/[\r\n]/g, "")).join("\n") } }, (err, out) => {
       if (err || !out) return res(null);
       const lines = String(out).split(/\r?\n/).filter(Boolean);
       const m = /^COUNT (\d+)$/.exec(lines[lines.length - 1] || "");
@@ -141,4 +155,4 @@ async function findPlaceholders(paths, { timeoutMs = 60000, sample = 12 } = {}) 
   });
 }
 
-module.exports = { unsafeEntries, bombRisk, longPath, uniquePath, safeFileName, fmtBytes, linkEntries, cloudSyncRoot, findPlaceholders };
+module.exports = { unsafeEntries, bombRisk, longPath, uniquePath, safeFileName, fmtBytes, linkEntries, cloudSyncRoot, findPlaceholders, csvCell };

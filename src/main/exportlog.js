@@ -61,7 +61,7 @@ function walk(root, onFile, limit, skipDirs = new Set()) {
   return n;
 }
 
-const csvCell = (c) => (/[",\r\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : String(c));
+const { csvCell } = require("./safety");
 
 /**
  * Collect the inventory (pure apart from reading the disk).

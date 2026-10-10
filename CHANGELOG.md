@@ -4,6 +4,43 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.2] - 2026-10-09
+
+### Security
+
+Fixes for the findings of the 0.5.1 security and privacy review:
+
+- A 7-Zip listing longer than the capture buffer was parsed as empty, so a
+  huge archive passed the path, link and ratio guards unchecked (SEC-01). The
+  buffer is now 256 MiB and a cut listing is refused instead of parsed.
+- A password given for a tar, tar.gz, tar.xz or tar.bz2 target was silently
+  dropped (SEC-02). The job now refuses with a message; the Smart compress
+  dialog warns before Pack.
+- Takeout parts ran only the path check (SEC-03); they now go through the
+  same inspection as every other extraction (links, ratio, password).
+- Files extracted from a downloaded archive get the archive's
+  Mark-of-the-Web, so SmartScreen and Protected View still apply (SEC-04).
+- A source archive is kept when 7-Zip reported a problem with any file,
+  instead of being binned or moved as if everything succeeded (SEC-05).
+- CSV cells that a spreadsheet would run as a formula are prefixed with an
+  apostrophe; numbers such as a longitude are left alone (SEC-06).
+- The cloud placeholder check hands paths to PowerShell through an
+  environment variable, never as script text (SEC-07).
+- Opening a program or script from the Library page asks first (SEC-09).
+- Cross-drive moves compare sizes before the source is removed (SEC-10).
+- Google's album `metadata.json` is kept in `Photos/_json/<album>/` instead
+  of being deleted with an emptied album folder (SEC-11).
+- Turning "Update automatically" off stops the running check timer (SEC-12).
+- Staging folders left by a crash are removed at start-up (SEC-13).
+- Extract, convert and test jobs run the per-file cloud check too (SEC-14).
+- The Library page resolves real paths, so a junction inside an opened folder
+  cannot lead outside it; drive roots can be browsed (SEC-15).
+
+### Fixed
+
+- Snapchat page: a full export's long list of data sections no longer runs
+  to three lines on the Select step.
+
 ## [0.5.1] - 2026-10-09
 
 ### Fixed

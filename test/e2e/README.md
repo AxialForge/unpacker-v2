@@ -20,3 +20,4 @@ folder, and two of them read a real export.
 Real-data scripts read `UNP_SNAPCHAT_DIR` / `UNP_TAKEOUT_DIR` (defaults are
 the author's drives). They open the sources read-only, work in a temp copy,
 print counts only, and delete the temp output at the end.
+    node test/e2e/e2e-zone-and-tar-password.js   # Mark-of-the-Web propagation; tar + password refused

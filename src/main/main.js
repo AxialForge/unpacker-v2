@@ -164,6 +164,8 @@ function initQueue() {
   });
 }
 
+const RUNNABLE = new Set([".exe", ".com", ".bat", ".cmd", ".scr", ".pif", ".msi", ".msp", ".ps1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh", ".hta", ".lnk", ".reg", ".jar", ".url", ".cpl", ".inf", ".application", ".appref-ms"]);
+
 // ── picture compositing for Snapchat overlays ──
 // Node has no image decoder, so a hidden window draws the photo and the
 // overlay on a canvas and hands back a JPEG. Pictures travel as data: URLs;
@@ -190,6 +192,20 @@ async function composite(photoPath, overlayPath) {
     })()`
   );
   return Buffer.from(String(out).split(",")[1], "base64");
+}
+
+// Every job stages under <temp>\UnpackerV2\<jobId> and removes it when done. A
+// crash or power cut leaves such a folder (for a conversion: a decrypted copy
+// of the source). No job is running at start-up, so the whole folder goes.
+function sweepStaging() {
+  const os = require("node:os");
+  for (const base of new Set([store.get().tempDir || "", os.tmpdir()].filter(Boolean))) {
+    try {
+      fs.rmSync(path.join(base, "UnpackerV2"), { recursive: true, force: true });
+    } catch {
+      /* in use or unwritable: the next start tries again */
+    }
+  }
 }
 
 // ── finished jobs: optional notification + optional history (both off by default) ──
@@ -322,6 +338,17 @@ function registerIpc() {
   ipcMain.handle("library:read", (_e, { id, rel }) => library.read(id, rel));
   ipcMain.handle("library:search", (_e, { id, query }) => library.search(id, query));
   ipcMain.handle("library:abs", (_e, { id, rel }) => library.resolve(id, rel));
+  // Open a file in its own program. Program-like types ask first: a file that
+  // came out of an archive is as trusted as the archive was.
+  ipcMain.handle("library:openFile", async (_e, { id, rel }) => {
+    const abs = library.resolve(id, rel);
+    if (!abs) return "missing";
+    if (RUNNABLE.has(path.extname(abs).toLowerCase())) {
+      const r = await dialog.showMessageBox(mainWindow, { type: "warning", buttons: ["Open it", "Cancel"], defaultId: 1, cancelId: 1, title: "This file can run as a program", message: `${path.basename(abs)} is a program or script.`, detail: "It came out of an archive, so it is only as trustworthy as where that archive came from. Open it only if you know what it is." });
+      if (r.response !== 0) return "cancelled";
+    }
+    return shell.openPath(abs);
+  });
 
   ipcMain.handle("app:info", () => ({
     version: app.getVersion(),
@@ -336,6 +363,10 @@ function registerIpc() {
   ipcMain.handle("settings:set", (_e, patch) => {
     const next = store.set(patch || {});
     if (patch && patch.concurrency) queue.setConcurrency(next.concurrency);
+    if (patch && typeof patch.autoUpdate === "boolean") {
+      if (patch.autoUpdate) updater.start({ enabled: true, onStatus: (s) => mainWindow && mainWindow.webContents.send("update:status", s) });
+      else updater.stop();
+    }
     return next;
   });
 
@@ -580,6 +611,7 @@ function registerIpc() {
 
 app.whenReady().then(() => {
   store = new Store(app.getPath("userData"));
+  sweepStaging();
   protocol.handle("unp", async (req) => {
     const u = new URL(req.url);
     const abs = library.resolve(u.host, decodeURIComponent(u.pathname));

@@ -172,6 +172,7 @@ async function moveFile(src, dst) {
   } catch (err) {
     if (err.code !== "EXDEV") throw err;
     await fsp.copyFile(src, target);
+    if ((await fsp.stat(target)).size !== (await fsp.stat(src)).size) throw new Error(`copy of ${path.basename(src)} is incomplete`);
     await fsp.unlink(src);
   }
   return target;
@@ -420,7 +421,7 @@ async function run(root, options = {}, ctx, deps = {}) {
       report.photos.albums = albumIndex.size;
     }
     // sweep now-empty album folders
-    for (const a of albums) removeEmptyDirs(a.dir);
+    for (const a of albums) removeEmptyDirs(a.dir, path.join(library, "Photos", "_json", a.name));
     for (const pd of photoDirs) removeEmptyDirs(pd);
   }
 
@@ -495,7 +496,11 @@ async function disposeSidecar(sidecar, album, o, library, report, trash) {
   }
 }
 
-function removeEmptyDirs(dir) {
+// A folder that holds only Google's boilerplate counts as empty. The boilerplate
+// that carries information (metadata.json: album title, description, sharing)
+// is moved to `keepTo` when given; the rest (archive_browser.html, our own
+// resume file) is removed.
+function removeEmptyDirs(dir, keepTo = null) {
   let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -510,7 +515,14 @@ function removeEmptyDirs(dir) {
   }
   if (empty) {
     try {
-      for (const e of entries) if (!e.isDirectory()) fs.rmSync(path.join(dir, e.name), { force: true });
+      for (const e of entries) {
+        if (e.isDirectory()) continue;
+        const p = path.join(dir, e.name);
+        if (keepTo && /^metadata\.json$/i.test(e.name)) {
+          fs.mkdirSync(keepTo, { recursive: true });
+          fs.renameSync(p, safety.uniquePath(path.join(keepTo, e.name), (q) => fs.existsSync(q)));
+        } else fs.rmSync(p, { force: true });
+      }
       fs.rmdirSync(dir);
       return true;
     } catch {

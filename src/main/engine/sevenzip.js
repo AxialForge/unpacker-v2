@@ -23,6 +23,11 @@ const path = require("node:path");
 const NO_PASSWORD = "unpacker-v2-no-password-given";
 
 const COMMON = ["-y", "-bso1", "-bse1", "-bsp1", "-bb0", "-sccUTF-8", "-scsUTF-8"];
+// Captured engine output is capped; a `-slt` listing is ~270 bytes per entry, so
+// 256 MiB holds about a million entries. Past the cap the tail is kept for error
+// messages and `truncated` is set; list() refuses to parse such output.
+const OUTPUT_CAP = 256 * 1024 * 1024;
+const OUTPUT_KEEP = 1024 * 1024;
 
 const EXIT = { 0: "ok", 1: "warning", 2: "fatal", 7: "usage", 8: "memory", 255: "cancelled" };
 
@@ -268,11 +273,15 @@ function run(exe, args, o = {}) {
       env: { ...process.env, ...(o.extraEnv || {}) },
     });
     let output = "";
+    let truncated = false; // the caller must know: a cut listing would parse as EMPTY and pass every guard
     const feed = createProgressParser((p) => o.onProgress && o.onProgress(p));
     const onData = (buf) => {
       const s = buf.toString("utf8");
       output += s;
-      if (output.length > 4 * 1024 * 1024) output = output.slice(-1024 * 1024);
+      if (output.length > OUTPUT_CAP) {
+        output = output.slice(-OUTPUT_KEEP);
+        truncated = true;
+      }
       feed(s);
       if (o.onOutput) o.onOutput(s);
     };
@@ -296,7 +305,7 @@ function run(exe, args, o = {}) {
     child.on("error", reject);
     child.on("close", (code) => {
       if (o.signal) o.signal.removeEventListener("abort", abort);
-      resolve({ code: aborted ? 255 : code, output });
+      resolve({ code: aborted ? 255 : code, output, truncated });
     });
   });
 }
@@ -363,7 +372,11 @@ class SevenZip {
       : await run(this.exe, listArgs(archive, o), { signal: o.signal });
     const cls = classify(res.code, res.output);
     if (cls.kind !== "ok" && cls.kind !== "warning") throw new EngineError(cls, res.output);
+    if (res.truncated) throw new EngineError({ kind: "unsupported", message: "The archive lists more entries than this app can check in one go (over about a million). Extract it with 7-Zip directly." }, res.output);
     const parsed = parseList(res.output);
+    if (!parsed.entries.length && /^Path = /m.test(res.output) && !/\n----------\n/.test(res.output.replace(/\r\n/g, "\n"))) {
+      throw new EngineError({ kind: "corrupt", message: "The archive listing could not be parsed." }, res.output);
+    }
     parsed.physicalSize = Number(parsed.archive["Physical Size"] || 0);
     return parsed;
   }

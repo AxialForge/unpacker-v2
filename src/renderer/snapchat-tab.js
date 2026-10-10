@@ -71,7 +71,7 @@
       const p = ex.peek || {};
       const bits = [`${ex.parts.length} file${ex.parts.length === 1 ? "" : "s"}`];
       if (p.photos || p.videos) bits.push(`${p.photos} photos, ${p.videos} videos, ${p.overlays} overlays`);
-      if (p.sections && p.sections.length) bits.push(`data: ${p.sections.join(", ")}`);
+      if (p.sections && p.sections.length) bits.push(p.sections.length > 6 ? `${p.sections.length} data sections (${p.sections.slice(0, 4).join(", ")}, …)` : `data: ${p.sections.join(", ")}`);
       const warn = [ex.missing.length ? `missing part${ex.missing.length === 1 ? "" : "s"} ${ex.missing.join(", ")}` : "", ex.duplicates.length ? `${ex.duplicates.length} repeated download ignored` : "", p.error ? `could not be read: ${p.error}` : ""].filter(Boolean).join("; ");
       box.appendChild(
         row(

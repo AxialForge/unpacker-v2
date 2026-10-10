@@ -20,7 +20,7 @@ const fsp = require("node:fs/promises");
 const path = require("node:path");
 const safety = require("./safety");
 
-const csvCell = (c) => (/[",\r\n]/.test(String(c ?? "")) ? `"${String(c).replace(/"/g, '""')}"` : String(c ?? ""));
+const csvCell = (c) => safety.csvCell(c ?? "");
 const csv = (rows) => `﻿${rows.map((r) => r.map(csvCell).join(",")).join("\r\n")}\r\n`;
 const safe = (s) => safety.safeFileName(String(s || "").trim()) || "unknown";
 

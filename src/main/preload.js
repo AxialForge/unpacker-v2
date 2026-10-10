@@ -71,6 +71,7 @@ contextBridge.exposeInMainWorld("unpacker", {
     read: (id, rel) => ipcRenderer.invoke("library:read", { id, rel }),
     search: (id, query) => ipcRenderer.invoke("library:search", { id, query }),
     abs: (id, rel) => ipcRenderer.invoke("library:abs", { id, rel }),
+    openFile: (id, rel) => ipcRenderer.invoke("library:openFile", { id, rel }),
   },
   dialog: {
     chooseFiles: () => ipcRenderer.invoke("dialog:chooseFiles"),

@@ -163,6 +163,7 @@ async function moveFile(src, dst) {
   } catch (err) {
     if (err.code !== "EXDEV") throw err;
     await fsp.copyFile(src, target);
+    if ((await fsp.stat(target)).size !== (await fsp.stat(src)).size) throw new Error(`copy of ${path.basename(src)} is incomplete`);
     await fsp.unlink(src);
   }
   return target;
@@ -339,7 +340,7 @@ async function organize(stage, options = {}, ctx, deps = {}) {
   }
 
   // index + missing list + report
-  const csv = (rows) => `${rows.map((r) => r.map((c) => (/[",\n]/.test(c) ? `"${String(c).replace(/"/g, '""')}"` : c)).join(",")).join("\r\n")}\r\n`;
+  const csv = (rows) => `${rows.map((r) => r.map(safety.csvCell).join(",")).join("\r\n")}\r\n`;
   fs.writeFileSync(path.join(memOut, "Memories index.csv"), `﻿${csv(index)}`, "utf8");
   if (unusedRecords.length) {
     fs.writeFileSync(

@@ -511,6 +511,7 @@ function syncPackNote() {
   if (hasChunk && $("pkMode").value === "chunks") notes.push("Files are grouped so each archive stays under the limit; folders are kept together when they fit. A single file bigger than the limit becomes its own volume set.");
   if (hasChunk && $("pkMode").value === "volumes") notes.push("One archive cut into .001/.002 pieces. Every piece is needed to open it.");
   if ($("pkPassword").value && $("pkFormat").value === "zip") notes.push("ZIP encrypts contents but not file names. Choose 7z to hide names too.");
+  if ($("pkPassword").value && /^tar/.test($("pkFormat").value)) notes.push("tar formats cannot be encrypted: the job will refuse to run with a password. Choose 7z or ZIP, or clear the password.");
   $("pkPlaceRow").style.opacity = $("pkManifest").checked ? "1" : "0.5";
   $("pkPlacement").disabled = !$("pkManifest").checked;
   if ($("pkManifest").checked && $("pkPlacement").value === "beside" && $("pkPassword").value) notes.push("The manifest text file beside the archives lists file names in plain text. Choose \"inside the archives only\" to keep names private.");

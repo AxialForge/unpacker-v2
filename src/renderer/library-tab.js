@@ -187,7 +187,7 @@
     meta.textContent = it.dir ? `${it.count} item${it.count === 1 ? "" : "s"}` : `${fmtBytes(it.size)}${state.view === "list" && it.mtime ? "  ·  " + fmtDate(it.mtime) : ""}`;
     el.append(th, name, meta);
     el.addEventListener("click", () => select(it, el));
-    el.addEventListener("dblclick", () => (it.dir ? show(it.rel) : api.library.abs(state.lib.id, it.rel).then((p) => p && api.shell.openPath(p))));
+    el.addEventListener("dblclick", () => (it.dir ? show(it.rel) : api.library.openFile(state.lib.id, it.rel)));
     el.addEventListener("keydown", (e) => {
       if (e.key === "Enter") it.dir ? show(it.rel) : select(it, el);
     });
@@ -363,10 +363,8 @@
       searchTimer = setTimeout(() => runSearch(q), 250);
     });
     $("libPvClose").addEventListener("click", closePreview);
-    $("libPvOpen").addEventListener("click", async () => {
-      if (!state.selected) return;
-      const p = await api.library.abs(state.lib.id, state.selected.rel);
-      if (p) api.shell.openPath(p);
+    $("libPvOpen").addEventListener("click", () => {
+      if (state.selected) api.library.openFile(state.lib.id, state.selected.rel);
     });
     $("libPvShow").addEventListener("click", async () => {
       if (!state.selected) return;

@@ -90,7 +90,16 @@ class Library {
     if (!root) return null;
     const clean = String(rel || "").replace(/^[/\\]+/, "");
     const abs = path.resolve(root, clean);
-    if (abs !== root && !abs.startsWith(root + path.sep)) return null;
+    const inside = (p, r) => p === r || p.startsWith(r.endsWith(path.sep) ? r : r + path.sep);
+    if (!inside(abs, root)) return null;
+    // Links and junctions inside the folder must not lead outside it.
+    try {
+      const realRoot = fs.realpathSync.native(root);
+      const realAbs = fs.realpathSync.native(abs);
+      if (!inside(realAbs, realRoot)) return null;
+    } catch {
+      /* the file may not exist yet (listing a folder that was just removed): the text test above still holds */
+    }
     return abs;
   }
 

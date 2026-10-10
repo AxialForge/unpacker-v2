@@ -41,3 +41,27 @@ test("Library resolves only inside an opened root and lists, reads, searches", a
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("Library resolve works for a drive root and refuses a junction that leads outside", async () => {
+  const L = new lib.Library();
+  const drive = path.parse(process.cwd()).root; // e.g. C:\\
+  const o = L.open(drive);
+  assert.ok(!o.error);
+  assert.equal(L.resolve(o.id, "Windows"), path.join(drive, "Windows"));
+  assert.equal(L.resolve(o.id, ".."), drive, "cannot climb above a drive root");
+  if (process.platform === "win32") {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "unp-lib-link-"));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "unp-lib-outside-"));
+    try {
+      fs.writeFileSync(path.join(outside, "secret.txt"), "x");
+      fs.symlinkSync(outside, path.join(root, "jump"), "junction");
+      const r = L.open(root);
+      assert.equal(L.resolve(r.id, "jump/secret.txt"), null, "a junction out of the folder is not followed");
+      const l = await L.list(r.id, "jump");
+      assert.ok(l.error, "listing through the junction is refused too");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  }
+});

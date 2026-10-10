@@ -1,0 +1,22 @@
+const fs = require("node:fs"), path = require("node:path"), os = require("node:os"), { execFileSync } = require("node:child_process");
+const ROOT = require("node:path").resolve(__dirname, "..", "..");
+const sz = require(path.join(ROOT, "src/main/engine/sevenzip")), { Runner } = require(path.join(ROOT, "src/main/jobs/runner")), { JobQueue } = require(path.join(ROOT, "src/main/jobs/queue"));
+const work = fs.mkdtempSync(path.join(os.tmpdir(), "unp-zone-")); fs.mkdirSync(path.join(work, "src", "sub"), { recursive: true });
+fs.writeFileSync(path.join(work, "src", "sub", "a.txt"), "hello"); fs.writeFileSync(path.join(work, "src", "b.txt"), "world");
+const zip = path.join(work, "dl.zip"); execFileSync(path.join(ROOT, "vendor/7zip/7z.exe"), ["a", "-tzip", zip, "*"], { cwd: path.join(work, "src"), stdio: "ignore" });
+fs.writeFileSync(`${zip}:Zone.Identifier`, "[ZoneTransfer]\r\nZoneId=3\r\n");
+const settings = { overwrite: "rename", verify: true, tempDir: "", allowHighRatio: false, allowLinks: false, extractMode: "subfolder", format: "7z", level: 5 };
+const runner = new Runner({ sevenZip: new sz.SevenZip(sz.locate({ appPath: ROOT })), rar: null, settings: () => settings, trash: async () => {} });
+const q = new JobQueue((j, c) => runner.run(j, c), { concurrency: 1 });
+const wait = (job) => new Promise((res) => { const h = (j) => { if (j.id === job.id && !["queued", "running"].includes(j.state)) { q.off("change", h); res(q.get(job.id)); } }; q.on("change", h); });
+(async () => {
+  const j = await wait(q.add({ kind: "extract", label: "z", inputs: [zip], options: {} }));
+  console.log("extract:", j.state, j.error || "");
+  const out = j.output; const ads = (p) => { try { return fs.readFileSync(`${p}:Zone.Identifier`, "utf8").includes("ZoneId=3"); } catch { return false; } };
+  console.log("zone mark on extracted files:", ads(path.join(out, "b.txt")), ads(path.join(out, "sub", "a.txt")));
+  const t = await wait(q.add({ kind: "compress", label: "t", inputs: [path.join(work, "src")], options: { format: "tar.gz", password: "secret" } }));
+  console.log("tar.gz with password:", t.state, "|", t.error);
+  const ok = await wait(q.add({ kind: "compress", label: "t2", inputs: [path.join(work, "src")], options: { format: "tar.gz" } }));
+  console.log("tar.gz without password:", ok.state, ok.error || "");
+  fs.rmSync(work, { recursive: true, force: true });
+})().catch((e) => { console.error("CRASH", e); process.exit(2); });

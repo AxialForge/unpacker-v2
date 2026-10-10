@@ -19,6 +19,42 @@ const manifestLib = require("../manifest");
 
 const MAX_WALK_ENTRIES = 250000; // stop estimating input size beyond this; the job still runs
 
+/**
+ * Windows marks downloads with a Zone.Identifier stream ("from the Internet"),
+ * which is what makes SmartScreen and Office's Protected View ask before a
+ * downloaded program or document opens. 7-Zip 26 has no switch to copy it, so
+ * when the ARCHIVE carries the mark, every extracted file gets the same one.
+ */
+async function propagateZone(archive, dest) {
+  if (process.platform !== "win32") return;
+  let zone;
+  try {
+    zone = fs.readFileSync(`${archive}:Zone.Identifier`);
+  } catch {
+    return; // not downloaded, or not NTFS
+  }
+  const walk = (d) => {
+    let ents = [];
+    try {
+      ents = fs.readdirSync(d, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of ents) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.isFile()) {
+        try {
+          fs.writeFileSync(`${p}:Zone.Identifier`, zone);
+        } catch {
+          /* FAT drive or read-only file: nothing to do */
+        }
+      }
+    }
+  };
+  walk(dest);
+}
+
 class Runner {
   /**
    * @param {object} deps
@@ -222,6 +258,9 @@ class Runner {
   }
 
   async createArchive({ out, inputs, cwd, target, options, tempDir, ctx, from, to }) {
+    if (options.password && !target.encrypt) {
+      throw new EngineError({ kind: "unsupported", message: `${target.label || target.id} cannot be encrypted, so the password would be silently ignored. Choose 7z or ZIP, or clear the password.` }, "");
+    }
     const level = LEVELS.find((l) => l.id === Number(options.level ?? this.settings().level)) || LEVELS[3];
     const onProgress = scale(ctx, from, to);
     if (target.engine === "rar") {
@@ -250,7 +289,7 @@ class Runner {
         tempDir,
         signal: ctx.signal,
         onProgress,
-        onWarning: (m) => ctx.warn(m),
+        onWarning: (m) => { job.partial = true; ctx.warn(m); },
       });
     }
     // With -v the engine names the first volume "<out>.001"; report that path.
@@ -349,6 +388,7 @@ class Runner {
   async extract(job, ctx) {
     const archive = path.resolve(job.inputs[0]);
     if (!fs.existsSync(safety.longPath(archive))) throw new EngineError({ kind: "notfound", message: `Missing: ${archive}` }, "");
+    await this.warnCloud([archive], ctx);
     const det = detectArchive(archive) || { type: "auto" };
     const listing = await this.inspect(archive, job.options, ctx, det.inner);
     const dest = this.extractDestFor(archive, listing, job.options);
@@ -365,7 +405,7 @@ class Runner {
         overwrite: job.options.overwrite || this.settings().overwrite,
         signal: ctx.signal,
         onProgress: scale(ctx, 0, 100),
-        onWarning: (m) => ctx.warn(m),
+        onWarning: (m) => { job.partial = true; ctx.warn(m); },
       });
       await this.afterExtract(job, ctx, archive, dest);
       return { output: dest };
@@ -382,6 +422,7 @@ class Runner {
    */
   async afterExtract(job, ctx, archive, dest) {
     const o = job.options;
+    await propagateZone(archive, dest);
     const depth = job.depth || 0;
     if (o.nested && o.nested !== "leave" && depth < (o.maxDepth || 3) && this.spawn) {
       const scan = require("../scan");
@@ -401,7 +442,8 @@ class Runner {
         }
       }
     }
-    if (o.removeSelf) {
+    if (o.removeSelf && job.partial) ctx.warn("The nested archive was kept: 7-Zip reported a problem with at least one file.");
+    else if (o.removeSelf) {
       ctx.stage("Removing the nested archive");
       for (const v of volumeSiblings(archive)) await this.trash(v);
     }
@@ -410,6 +452,7 @@ class Runner {
   async convert(job, ctx) {
     const archive = path.resolve(job.inputs[0]);
     if (!fs.existsSync(safety.longPath(archive))) throw new EngineError({ kind: "notfound", message: `Missing: ${archive}` }, "");
+    await this.warnCloud([archive], ctx);
     const det = detectArchive(archive) || { type: "auto", baseName: path.basename(archive) };
     const target = this.targetFor(job.options.format || this.settings().convertTarget);
     const listing = await this.inspect(archive, job.options, ctx, det.inner);
@@ -438,7 +481,7 @@ class Runner {
         overwrite: "overwrite",
         signal: ctx.signal,
         onProgress: scale(ctx, 0, 45),
-        onWarning: (m) => ctx.warn(m),
+        onWarning: (m) => { job.partial = true; ctx.warn(m); },
       });
 
       const items = fs.readdirSync(stage);
@@ -529,9 +572,8 @@ class Runner {
     let need = 0;
     const det0 = todo.length ? detectArchive(todo[0].path) : null;
     for (const part of todo) {
-      const listing = await this.sevenZip.list(part.path, { signal: ctx.signal, inner: det0 && det0.inner });
-      const bad = safety.unsafeEntries(listing.entries.map((e) => e.path));
-      if (bad.length) throw new EngineError({ kind: "unsafe", message: `${path.basename(part.path)} contains an unsafe path ("${bad[0]}")` }, "");
+      // the same path / link / ratio guards every extraction gets
+      const listing = await this.inspect(part.path, {}, ctx, det0 && det0.inner);
       part.files = listing.totals.files;
       need += listing.totals.size;
     }
@@ -557,7 +599,7 @@ class Runner {
           overwrite: o.overwrite || "skip",
           signal: ctx.signal,
           onProgress: scale(ctx, from, to),
-          onWarning: (m) => ctx.warn(`${path.basename(part.path)}: ${m}`),
+          onWarning: (m) => { job.partial = true; ctx.warn(`${path.basename(part.path)}: ${m}`); },
         });
         state.done[path.basename(part.path)] = { size: part.st.size, mtimeMs: part.st.mtimeMs, at: new Date().toISOString() };
         takeout.writeState(dest, state);
@@ -579,7 +621,8 @@ class Runner {
       const r = takeout.tidyPhotoSidecars(dest);
       log(`moved ${r.moved} JSON sidecars into _json folders`);
     }
-    if (o.trashParts) {
+    if (o.trashParts && job.partial) ctx.warn("The downloaded parts were kept: 7-Zip reported a problem with at least one file.");
+    else if (o.trashParts) {
       ctx.stage("Moving the downloaded parts to the Recycle Bin");
       for (const p of parts) await this.trash(p);
       log(`moved ${parts.length} part files to the Recycle Bin`);
@@ -863,14 +906,15 @@ class Runner {
         ctx.stage(`Extracting ${path.basename(parts[i])} (${i + 1} of ${parts.length})`);
         // every part keeps its own copy of the json sections; the organiser merges them
         await this.sevenZip.extract(parts[i], path.join(stage, "_sections", String(i + 1)), { overwrite: "overwrite", only: ["json\\*"], signal: ctx.signal, tolerateWarnings: true });
-        await this.sevenZip.extract(parts[i], stage, { overwrite: "skip", signal: ctx.signal, onProgress: scale(ctx, base + (acc / total) * (55 - base), base + ((acc + sizes[i]) / total) * (55 - base)), onWarning: (m) => ctx.warn(`${path.basename(parts[i])}: ${m}`) });
+        await this.sevenZip.extract(parts[i], stage, { overwrite: "skip", signal: ctx.signal, onProgress: scale(ctx, base + (acc / total) * (55 - base), base + ((acc + sizes[i]) / total) * (55 - base)), onWarning: (m) => { job.partial = true; ctx.warn(`${path.basename(parts[i])}: ${m}`); } });
         acc += sizes[i];
       }
     }
     const from = o.extracted ? 0 : 55;
     const sub = { ...ctx, progress: ({ percent, file }) => ctx.progress({ percent: from + ((100 - from) * (percent || 0)) / 100, file }) };
     const result = await snapchat.organize(stage, o.organize || {}, sub, { composite: this.composite });
-    if (!o.extracted && o.trashParts) {
+    if (!o.extracted && o.trashParts && job.partial) ctx.warn("The downloaded files were kept: 7-Zip reported a problem with at least one file.");
+    else if (!o.extracted && o.trashParts) {
       ctx.stage("Moving the downloaded parts to the Recycle Bin");
       for (const p of job.inputs) await this.trash(path.resolve(p));
     }
@@ -879,6 +923,7 @@ class Runner {
 
   async test(job, ctx) {
     const archive = path.resolve(job.inputs[0]);
+    await this.warnCloud([archive], ctx);
     ctx.stage("Testing");
     await this.sevenZip.test(archive, { password: job.options.password, signal: ctx.signal, onProgress: scale(ctx, 0, 100) });
     return { output: archive };
